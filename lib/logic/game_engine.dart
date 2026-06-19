@@ -214,7 +214,6 @@ class GameEngine extends ChangeNotifier {
     _votes.clear();
     _phase = GamePhase.electionVoting;
     log('${currentPresident.name} nominated ${players[index].name} for Chancellor.');
-    SoundManager.play(SoundEvent.policySpecialElection);
     notifyListeners();
   }
 
@@ -222,7 +221,6 @@ class GameEngine extends ChangeNotifier {
   void castVote(int playerIndex, bool vote) {
     if (!_players[playerIndex].isAlive) return;
     _votes[playerIndex] = vote;
-    SoundManager.play(SoundEvent.clockTick);
     notifyListeners();
   }
 

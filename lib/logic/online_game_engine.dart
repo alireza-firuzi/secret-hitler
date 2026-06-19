@@ -75,7 +75,7 @@ class OnlineGameEngine extends ChangeNotifier {
               } else if (currentPhase == 'electionNomination') {
                 SoundManager.play(SoundEvent.shuffle);
               } else if (currentPhase == 'electionVoting') {
-                SoundManager.play(SoundEvent.policySpecialElection);
+                // Silent
               } else if (currentPhase == 'legislativePresident') {
                 SoundManager.play(SoundEvent.presidentReceivesPolicies);
               } else if (currentPhase == 'legislativeChancellor') {
@@ -103,8 +103,6 @@ class OnlineGameEngine extends ChangeNotifier {
                 SoundManager.play(SoundEvent.alarm);
               } else if (currentLib > previousLib) {
                 SoundManager.play(SoundEvent.enactPolicy);
-              } else if (currentVotesCount > previousVotesCount) {
-                SoundManager.play(SoundEvent.clockTick);
               } else if (currentInvestigated != previousInvestigated && currentInvestigated != -1) {
                 SoundManager.play(SoundEvent.policyInvestigate);
               } else if (currentAlive < previousAlive) {

@@ -12,6 +12,22 @@ const server = http.createServer((req, res) => {
 // Create WebSocket Server
 const wss = new WebSocketServer({ server });
 
+// Heartbeat keep-alive ping loop
+const interval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log('Heartbeat missed. Terminating connection.');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 5000);
+
+wss.on('close', () => {
+  clearInterval(interval);
+});
+
 // Memory databases
 const games = {}; // lobbyCode -> public game state
 const privateRoles = {}; // lobbyCode -> { playerId -> roleData }
@@ -46,6 +62,10 @@ function broadcast(lobbyCode) {
 
 wss.on('connection', (ws) => {
   console.log('New connection established.');
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', (message) => {
     try {
