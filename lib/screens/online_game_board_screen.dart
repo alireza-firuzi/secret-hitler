@@ -852,6 +852,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
       if (index == widget.engine.powerExecutorIndex || target['isAlive'] != true) return;
 
       if (power == 'investigateLoyalty') {
+        if (widget.engine.investigatedPlayerIndex != -1) return;
         widget.engine.executeInvestigateLoyalty(index);
         setState(() {
           _showingLoyaltyResult = true;

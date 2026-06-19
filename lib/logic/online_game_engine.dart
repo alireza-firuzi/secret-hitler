@@ -555,6 +555,7 @@ class OnlineGameEngine extends ChangeNotifier {
   // Executive actions
   Future<void> executeInvestigateLoyalty(int targetIndex) async {
     if (!isMyTurnToExecutePower || activePowerStr != 'investigateLoyalty') return;
+    if (investigatedPlayerIndex != -1) return;
 
     final target = players[targetIndex];
     final targetRoleData = await FirebaseManager.getPrivateRole(lobbyCode, target['id']);

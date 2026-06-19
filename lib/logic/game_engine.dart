@@ -424,6 +424,7 @@ class GameEngine extends ChangeNotifier {
   // Executive Power Actions
   void executeInvestigateLoyalty(int targetIndex) {
     if (_activePower != ExecutivePower.investigateLoyalty) return;
+    if (_investigatedPlayerIndex != -1) return;
     if (targetIndex == powerExecutorIndex || !_players[targetIndex].isAlive) return;
 
     final target = _players[targetIndex];

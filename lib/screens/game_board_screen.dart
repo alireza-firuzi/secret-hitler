@@ -688,6 +688,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
       if (index == widget.engine.powerExecutorIndex || !widget.engine.players[index].isAlive) return;
 
       if (power == ExecutivePower.investigateLoyalty) {
+        if (widget.engine.investigatedPlayerIndex != -1) return;
         widget.engine.executeInvestigateLoyalty(index);
         setState(() {
           _showingInvestigationResult = true;
