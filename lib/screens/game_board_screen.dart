@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../logic/game_engine.dart';
+import '../logic/sound_manager.dart';
 import '../models/game_state.dart';
 import '../widgets/board_widgets.dart';
 
@@ -26,6 +27,138 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
 
   // For loyalty investigation private view
   bool _showingInvestigationResult = false;
+
+  GamePhase? _lastPhase;
+  bool _hasAnnouncedThirdFascistPower = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.engine.addListener(_onEngineChange);
+    _lastPhase = widget.engine.phase;
+  }
+
+  @override
+  void dispose() {
+    widget.engine.removeListener(_onEngineChange);
+    SoundManager.stopLoop(); // Stop loops when screen is disposed
+    super.dispose();
+  }
+
+  void _onEngineChange() {
+    final currentPhase = widget.engine.phase;
+    final currentFas = widget.engine.fascistPolicies;
+
+    if (currentPhase != _lastPhase) {
+      final oldPhase = _lastPhase;
+      _lastPhase = currentPhase;
+
+      if (currentPhase == GamePhase.electionVoting) {
+        SoundManager.startLoop(SoundEvent.clockTick); // Annoying ticking loop!
+      } else if (oldPhase == GamePhase.electionVoting) {
+        SoundManager.stopLoop(); // Stop loop for other phases
+      }
+
+      // Check if we need to show the 3rd fascist policy announcement
+      if (currentPhase == GamePhase.executiveAction && currentFas == 3) {
+        if (!_hasAnnouncedThirdFascistPower) {
+          _hasAnnouncedThirdFascistPower = true;
+          // Trigger the dialog after the build completes
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showThirdFascistPolicyAnnouncement();
+          });
+        }
+      } else {
+        // Reset the announcement flag if we leave the phase
+        _hasAnnouncedThirdFascistPower = false;
+      }
+    }
+  }
+
+  void _showThirdFascistPolicyAnnouncement() {
+    final chancellorName = widget.engine.currentChancellor?.name ?? 'نامشخص';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF2C2523),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Color(0xFFD4AF37), size: 28),
+                SizedBox(width: 8),
+                Text(
+                  'اعلامیه قدرت ویژه صدراعظم',
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFE6DFD3),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'سومین سیاست فاشیستی تصویب شد!',
+                  style: TextStyle(
+                    color: Color(0xFFC92A2A),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'صدراعظم اکنون این قدرت ویژه را دارد که وفاداری حزبی یکی از بازیکنان را بررسی کند.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, color: Color(0xFFD4AF37), size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'صدراعظم فعلی: $chancellorName',
+                        style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9E2A2B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('متوجه شدم'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

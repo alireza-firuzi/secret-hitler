@@ -27,8 +27,13 @@ class SoundManager {
   static bool _muted = false;
   static bool get isMuted => _muted;
 
+  static AudioPlayer? _loopPlayer;
+
   static void setMuted(bool muted) {
     _muted = muted;
+    if (muted) {
+      stopLoop();
+    }
   }
 
   static Future<void> play(SoundEvent event) async {
@@ -46,6 +51,32 @@ class SoundManager {
       });
     } catch (e) {
       print("Error playing sound $event: $e");
+    }
+  }
+
+  static Future<void> startLoop(SoundEvent event) async {
+    if (_muted) return;
+
+    try {
+      await stopLoop(); // Stop any existing loop
+      _loopPlayer = AudioPlayer();
+      await _loopPlayer!.setReleaseMode(ReleaseMode.loop);
+      final String fileName = _getFileName(event);
+      await _loopPlayer!.play(AssetSource('sounds/$fileName'));
+    } catch (e) {
+      print("Error starting loop $event: $e");
+    }
+  }
+
+  static Future<void> stopLoop() async {
+    try {
+      if (_loopPlayer != null) {
+        await _loopPlayer!.stop();
+        await _loopPlayer!.dispose();
+        _loopPlayer = null;
+      }
+    } catch (e) {
+      print("Error stopping loop: $e");
     }
   }
 
