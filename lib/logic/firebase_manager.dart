@@ -10,6 +10,9 @@ class FirebaseManager {
   static WebSocketChannel? _channel;
   static final StreamController<Map<String, dynamic>?> _gameStreamController =
       StreamController<Map<String, dynamic>?>.broadcast();
+  static final StreamController<String> _errorStreamController =
+      StreamController<String>.broadcast();
+  static Stream<String> get errorStream => _errorStreamController.stream;
 
   // Maps to match request completers for getPrivateRole
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
@@ -47,6 +50,9 @@ class FirebaseManager {
           if (type == 'sync' || type == 'created' || type == 'joined') {
             final data = payload['data'] as Map<String, dynamic>?;
             _gameStreamController.add(data);
+          } else if (type == 'error') {
+            final errorMessage = payload['message'] ?? 'خطایی رخ داد';
+            _errorStreamController.add(errorMessage);
           } else if (type == 'privateRole') {
             final data = payload['data'] as Map<String, dynamic>?;
             // Match with active completer
@@ -106,36 +112,48 @@ class FirebaseManager {
   }
 
   // Join an existing game lobby
-  static Future<bool> joinGame({
+  static Future<String?> joinGame({
     required String lobbyCode,
     required String playerName,
     required String playerId,
   }) async {
-    final completer = Completer<bool>();
+    final completer = Completer<String?>();
 
     if (_channel == null || !_firebaseInitialized) {
       _connectWebSocket();
       _firebaseInitialized = true;
     }
 
-    // Listen to confirm join
+    // Listen to confirm join or handle errors
     late StreamSubscription tempSub;
+    late StreamSubscription errorSub;
+
+    void cleanup() {
+      tempSub.cancel();
+      errorSub.cancel();
+    }
+
     tempSub = _gameStreamController.stream.listen((data) {
       if (data != null && data['lobbyCode'] == lobbyCode) {
         final List<dynamic> players = data['players'] ?? [];
         final hasMe = players.any((p) => p['id'] == playerId);
         if (hasMe) {
-          tempSub.cancel();
-          completer.complete(true);
+          cleanup();
+          completer.complete(null); // null means success (no error message)
         }
       }
+    });
+
+    errorSub = errorStream.listen((errorMessage) {
+      cleanup();
+      completer.complete(errorMessage);
     });
 
     // Timeout after 3 seconds if lobby not found
     Timer(const Duration(seconds: 3), () {
       if (!completer.isCompleted) {
-        tempSub.cancel();
-        completer.complete(false);
+        cleanup();
+        completer.complete('پاسخی از سرور دریافت نشد. لطفاً کد لابی را بررسی کنید.');
       }
     });
 

@@ -363,7 +363,14 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
           return _buildGameOverScreen();
         }
 
-        return Scaffold(
+        // Check if any alive players are disconnected to pause the game
+        final List<dynamic> players = widget.engine.players;
+        final disconnectedPlayers = players
+            .where((p) => p['isDisconnected'] == true && p['isAlive'] == true)
+            .map((p) => p['name'] as String)
+            .toList();
+
+        Widget content = Scaffold(
           backgroundColor: const Color(0xFF1B1816),
           appBar: AppBar(
             backgroundColor: const Color(0xFF2C2523),
@@ -407,6 +414,70 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                   ),
           ),
         );
+
+        if (disconnectedPlayers.isNotEmpty) {
+          final disconnectedNamesStr = disconnectedPlayers.join('، ');
+          content = Stack(
+            children: [
+              content,
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.85),
+                  child: Center(
+                    child: Card(
+                      color: const Color(0xFF2C2523),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: Color(0xFF9E2A2B), width: 2),
+                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.pause_circle_filled,
+                              color: Color(0xFF9E2A2B),
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'بازی متوقف شد',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                color: Color(0xFFE6DFD3),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'در انتظار اتصال مجدد بازیکن: $disconnectedNamesStr',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                                height: 1.4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            const CircularProgressIndicator(
+                              color: Color(0xFFD4AF37),
+                              strokeWidth: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return content;
       },
     );
   }

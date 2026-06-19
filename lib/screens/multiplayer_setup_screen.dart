@@ -93,16 +93,16 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
           return;
         }
 
-        final success = await FirebaseManager.joinGame(
+        final errorMsg = await FirebaseManager.joinGame(
           lobbyCode: code,
           playerName: name,
           playerId: playerId,
         );
 
-        if (success) {
+        if (errorMsg == null) {
           widget.onEnterLobby(code, name, playerId);
         } else {
-          _showError('لابی پیدا نشد، ظرفیت بازیکنان پر شده یا بازی در حال انجام است.');
+          _showError(errorMsg);
         }
       }
     } catch (e) {
