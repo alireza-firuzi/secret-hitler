@@ -33,7 +33,7 @@ class OnlineGameEngine extends ChangeNotifier {
   bool _isTallying = false;
 
   void _subscribe() {
-    _subscription = FirebaseManager.streamGame(lobbyCode).listen((data) {
+    _subscription = FirebaseManager.streamGame(lobbyCode, localPlayerId).listen((data) {
       if (data != null) {
         final previousStatus = _gameData['status'];
         final previousPhase = _gameData['phase'];

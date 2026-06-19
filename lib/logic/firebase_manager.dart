@@ -168,11 +168,12 @@ class FirebaseManager {
   }
 
   // Stream updates for a game
-  static Stream<Map<String, dynamic>?> streamGame(String lobbyCode) {
+  static Stream<Map<String, dynamic>?> streamGame(String lobbyCode, String playerId) {
     // Send subscription request to the server
     _channel?.sink.add(jsonEncode({
       'action': 'subscribe',
       'lobbyCode': lobbyCode,
+      'playerId': playerId,
     }));
     return _gameStreamController.stream;
   }
