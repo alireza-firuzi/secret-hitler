@@ -61,7 +61,15 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     _lastLib = currentLib;
 
     if (currentPhase != _lastPhase) {
+      final oldPhase = _lastPhase;
       _lastPhase = currentPhase;
+
+      // Show election results popup if the election phase just ended
+      if (oldPhase == 'electionVoting') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showElectionResultDialog();
+        });
+      }
 
       // Check if we need to show the 3rd fascist policy announcement
       if (currentPhase == 'executiveAction' && currentFas == 3) {
@@ -77,6 +85,126 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
         _hasAnnouncedThirdFascistPower = false;
       }
     }
+  }
+
+  void _showElectionResultDialog() {
+    final lastResult = widget.engine.lastElectionResult;
+    if (lastResult == null) return;
+
+    final nomineeName = lastResult['nomineeName'] ?? 'نامشخص';
+    final passed = lastResult['passed'] == true;
+    final Map<String, dynamic> rawVotes = Map<String, dynamic>.from(lastResult['votes'] ?? {});
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF2C2523),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: BorderSide(
+                color: passed ? const Color(0xFF2B9E49) : const Color(0xFF9E2A2B),
+                width: 2,
+              ),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  passed ? Icons.check_circle : Icons.cancel,
+                  color: passed ? const Color(0xFF2B9E49) : const Color(0xFF9E2A2B),
+                  size: 28,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'نتیجه انتخابات صدراعظمی',
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    color: Color(0xFFE6DFD3),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    passed
+                        ? 'انتخابات برای صدراعظمی «$nomineeName» تایید شد! وی اکنون صدراعظم است.'
+                        : 'انتخابات برای صدراعظمی «$nomineeName» شکست خورد.',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'آرای بازیکنان:',
+                    style: TextStyle(
+                      color: Color(0xFFD4AF37),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...rawVotes.entries.map((entry) {
+                    final name = _getPlayerNameById(entry.key);
+                    final vote = entry.value == true;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(name, style: const TextStyle(color: Colors.white70)),
+                          Row(
+                            children: [
+                              Icon(
+                                vote ? Icons.check : Icons.close,
+                                color: vote ? const Color(0xFF8CE99A) : const Color(0xFFFF847C),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                vote ? 'موافق (Ja)' : 'مخالف (Nein)',
+                                style: TextStyle(
+                                  color: vote ? const Color(0xFF8CE99A) : const Color(0xFFFF847C),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: passed ? const Color(0xFF2B9E49) : const Color(0xFF9E2A2B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('فهمیدم', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showThirdFascistPolicyAnnouncement() {
