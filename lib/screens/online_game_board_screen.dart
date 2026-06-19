@@ -27,6 +27,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
   int? _lastFas;
   int? _lastLib;
   bool _hasAnnouncedThirdFascistPower = false;
+  bool _hasAnnouncedExecutionPower = false;
 
   @override
   void initState() {
@@ -83,6 +84,19 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
       } else {
         // Reset the announcement flag if we leave the phase
         _hasAnnouncedThirdFascistPower = false;
+      }
+
+      // Check if we need to show the execution power announcement
+      if (currentPhase == 'executiveAction' && widget.engine.activePowerStr == 'execution') {
+        if (!_hasAnnouncedExecutionPower) {
+          _hasAnnouncedExecutionPower = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showExecutionPowerAnnouncement();
+          });
+        }
+      } else {
+        // Reset the announcement flag if we leave the phase
+        _hasAnnouncedExecutionPower = false;
       }
     }
   }
@@ -208,10 +222,6 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
   }
 
   void _showThirdFascistPolicyAnnouncement() {
-    final chancellorName = widget.engine.chancellorIndex != -1 && widget.engine.chancellorIndex < widget.engine.players.length
-        ? widget.engine.players[widget.engine.chancellorIndex]['name']
-        : 'نامشخص';
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -229,7 +239,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                 Icon(Icons.warning_amber_rounded, color: Color(0xFFD4AF37), size: 28),
                 SizedBox(width: 8),
                 Text(
-                  'اعلامیه قدرت ویژه صدراعظم',
+                  'اعلامیه فاز حساس بازی',
                   style: TextStyle(
                     fontFamily: 'serif',
                     fontSize: 16,
@@ -239,43 +249,126 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                 ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'سومین سیاست فاشیستی تصویب شد!',
+                    style: TextStyle(
+                      color: Color(0xFFC92A2A),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'رئیس‌جمهور فعلی اکنون این قدرت را دارد که وفاداری حزبی یکی از بازیکنان را بررسی کند.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF5C1A1B).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF9E2A2B).withOpacity(0.5)),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.error_outline, color: Color(0xFFFF847C), size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'هشدار بسیار مهم و حیاتی:',
+                              style: TextStyle(color: Color(0xFFFF847C), fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'از این لحظه به بعد، اگر هیتلر مخفی به عنوان صدراعظم انتخاب شود (و رای انتخابات تایید شود)، فاشیست‌ها فوراً برنده بازی خواهند شد! در انتخاب نامزدها و رای‌های خود بسیار دقت کنید.',
+                          style: TextStyle(color: Colors.white, fontSize: 12, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF9E2A2B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('متوجه شدم'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showExecutionPowerAnnouncement() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF2C2523),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+              side: const BorderSide(color: Color(0xFF9E2A2B), width: 2),
+            ),
+            title: const Row(
               children: [
-                const Text(
-                  'سومین سیاست فاشیستی تصویب شد!',
+                Icon(Icons.gavel, color: Color(0xFF9E2A2B), size: 28),
+                SizedBox(width: 8),
+                Text(
+                  'فعال شدن قدرت ترور',
                   style: TextStyle(
-                    color: Color(0xFFC92A2A),
+                    fontFamily: 'serif',
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'صدراعظم اکنون این قدرت ویژه را دارد که وفاداری حزبی یکی از بازیکنان را بررسی کند.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person, color: Color(0xFFD4AF37), size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'صدراعظم فعلی: $chancellorName',
-                        style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                    ],
+                    color: Color(0xFFE6DFD3),
                   ),
                 ),
               ],
+            ),
+            content: const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'یک سیاست فاشیستی جدید تصویب شد!',
+                    style: TextStyle(
+                      color: Color(0xFFC92A2A),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'قدرت ترور (اعدام) فعال شد! رئیس‌جمهور اکنون باید یکی از بازیکنان را برای ترور انتخاب کند.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'نکته مهم: بازیکن ترور شده به طور کامل از بازی حذف می‌شود. اگر هیتلر مخفی ترور شود، لیبرال‌ها فوراً برنده بازی خواهند شد!',
+                    style: TextStyle(color: Color(0xFF8CE99A), fontSize: 12, height: 1.4),
+                  ),
+                ],
+              ),
             ),
             actions: [
               ElevatedButton(
