@@ -24,6 +24,8 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
   bool _revealSecretCard = false;
 
   String? _lastPhase;
+  int? _lastFas;
+  int? _lastLib;
   bool _hasAnnouncedThirdFascistPower = false;
 
   @override
@@ -31,28 +33,35 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     super.initState();
     widget.engine.addListener(_onEngineChange);
     _lastPhase = widget.engine.phaseStr;
+    _lastFas = widget.engine.fascistPolicies;
+    _lastLib = widget.engine.liberalPolicies;
   }
 
   @override
   void dispose() {
     widget.engine.removeListener(_onEngineChange);
-    SoundManager.stopLoop(); // Stop loops when screen is disposed
     super.dispose();
   }
 
   void _onEngineChange() {
     final currentPhase = widget.engine.phaseStr;
     final currentFas = widget.engine.fascistPolicies;
+    final currentLib = widget.engine.liberalPolicies;
+
+    // Check if a new card was placed (policies count increased)
+    if (_lastFas != null && _lastLib != null) {
+      if (currentFas > _lastFas! || currentLib > _lastLib!) {
+        // Automatically switch to board tab (Tab 0)
+        setState(() {
+          _activeTab = 0;
+        });
+      }
+    }
+    _lastFas = currentFas;
+    _lastLib = currentLib;
 
     if (currentPhase != _lastPhase) {
-      final oldPhase = _lastPhase;
       _lastPhase = currentPhase;
-
-      if (currentPhase == 'electionVoting') {
-        SoundManager.startLoop(SoundEvent.clockTick); // Annoying ticking loop!
-      } else if (oldPhase == 'electionVoting') {
-        SoundManager.stopLoop(); // Stop loop for other phases
-      }
 
       // Check if we need to show the 3rd fascist policy announcement
       if (currentPhase == 'executiveAction' && currentFas == 3) {

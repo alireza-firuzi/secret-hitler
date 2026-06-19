@@ -29,6 +29,8 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
   bool _showingInvestigationResult = false;
 
   GamePhase? _lastPhase;
+  int? _lastFas;
+  int? _lastLib;
   bool _hasAnnouncedThirdFascistPower = false;
 
   @override
@@ -36,6 +38,8 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
     super.initState();
     widget.engine.addListener(_onEngineChange);
     _lastPhase = widget.engine.phase;
+    _lastFas = widget.engine.fascistPolicies;
+    _lastLib = widget.engine.liberalPolicies;
   }
 
   @override
@@ -48,16 +52,22 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
   void _onEngineChange() {
     final currentPhase = widget.engine.phase;
     final currentFas = widget.engine.fascistPolicies;
+    final currentLib = widget.engine.liberalPolicies;
+
+    // Check if a new card was placed (policies count increased)
+    if (_lastFas != null && _lastLib != null) {
+      if (currentFas > _lastFas! || currentLib > _lastLib!) {
+        // Automatically switch to board tab (Tab 0)
+        setState(() {
+          _activeTab = 0;
+        });
+      }
+    }
+    _lastFas = currentFas;
+    _lastLib = currentLib;
 
     if (currentPhase != _lastPhase) {
-      final oldPhase = _lastPhase;
       _lastPhase = currentPhase;
-
-      if (currentPhase == GamePhase.electionVoting) {
-        SoundManager.startLoop(SoundEvent.clockTick); // Annoying ticking loop!
-      } else if (oldPhase == GamePhase.electionVoting) {
-        SoundManager.stopLoop(); // Stop loop for other phases
-      }
 
       // Check if we need to show the 3rd fascist policy announcement
       if (currentPhase == GamePhase.executiveAction && currentFas == 3) {

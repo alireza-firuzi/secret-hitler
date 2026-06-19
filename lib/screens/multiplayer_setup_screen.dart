@@ -207,7 +207,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                               
                               // Stylized Title
                               const Text(
-                                'مرموز',
+                                'راز',
                                 style: TextStyle(
                                   fontFamily: 'serif',
                                   fontSize: 32,

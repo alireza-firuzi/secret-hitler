@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const SecretHitlerApp());
 
     // Verify that the logo branding is shown
-    expect(find.text('مرموز'), findsOneWidget);
+    expect(find.text('راز'), findsOneWidget);
     expect(find.text('هیتلر'), findsOneWidget);
 
     // Verify that the online lobby options are shown
