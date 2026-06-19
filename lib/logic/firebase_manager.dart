@@ -15,15 +15,14 @@ class FirebaseManager {
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
 
   static String get _wsUrl {
-    // Dynamically resolve hostname for local web and Wi-Fi debugging
-    String host = 'localhost';
     if (kIsWeb) {
       final uri = Uri.base;
-      if (uri.host.isNotEmpty) {
-        host = uri.host;
+      if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
+        // Production hosted backend server on Render
+        return 'wss://secret-hitler-backend-alireza.onrender.com';
       }
     }
-    return 'ws://$host:3000';
+    return 'ws://localhost:3000';
   }
 
   static Future<void> initialize() async {
