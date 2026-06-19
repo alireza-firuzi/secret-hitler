@@ -298,6 +298,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
             playerCount: widget.engine.players.length,
           ),
           ElectionTrackerWidget(count: widget.engine.electionTracker),
+          _buildLastElectionResultWidget(),
           const SizedBox(height: 16),
           // Info stats
           Padding(
@@ -312,6 +313,124 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
             ),
           ),
           const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLastElectionResultWidget() {
+    final lastResult = widget.engine.lastElectionResult;
+    if (lastResult == null) return const SizedBox.shrink();
+
+    final nomineeName = lastResult['nomineeName'] ?? 'نامشخص';
+    final passed = lastResult['passed'] == true;
+    final Map<String, bool> playerVotes = Map<String, bool>.from(lastResult['votes'] ?? {});
+
+    if (playerVotes.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xE6251E1C),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: passed ? const Color(0xFF1D4426).withOpacity(0.5) : const Color(0xFF9E2A2B).withOpacity(0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'آخرین نتیجه انتخابات',
+                    style: TextStyle(
+                      fontFamily: 'serif',
+                      color: Color(0xFFD4AF37),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'نامزد صدراعظمی: $nomineeName',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: passed ? const Color(0xFF112E18) : const Color(0xFF5C1A1B),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: passed ? const Color(0xFF2B9E49) : const Color(0xFF9E2A2B),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  passed ? 'تایید شد (موافق)' : 'رد شد (مخالف)',
+                  style: TextStyle(
+                    color: passed ? const Color(0xFF8CE99A) : const Color(0xFFFF847C),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white10, height: 20),
+          Directionality(
+            textDirection: TextDirection.rtl,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: playerVotes.entries.map((entry) {
+                final name = entry.key;
+                final vote = entry.value == true;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: vote ? const Color(0xFF112E18).withOpacity(0.3) : const Color(0xFF5C1A1B).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: vote ? const Color(0xFF2B9E49).withOpacity(0.4) : const Color(0xFF9E2A2B).withOpacity(0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        vote ? Icons.check_circle_outline : Icons.cancel_outlined,
+                        color: vote ? const Color(0xFF8CE99A) : const Color(0xFFFF847C),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        name,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         ],
       ),
     );

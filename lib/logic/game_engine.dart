@@ -36,6 +36,7 @@ class GameEngine extends ChangeNotifier {
   String? _winReason;
   String? _investigatedParty;
   int _investigatedPlayerIndex = -1;
+  Map<String, dynamic>? _lastElectionResult;
 
   // Getters
   List<Player> get players => _players;
@@ -53,6 +54,7 @@ class GameEngine extends ChangeNotifier {
   ExecutivePower get activePower => _activePower;
   Map<int, bool> get votes => _votes;
   List<PolicyType> get drawnPolicies => _drawnPolicies;
+  Map<String, dynamic>? get lastElectionResult => _lastElectionResult;
   List<String> get logs => _logs;
   int get revealPlayerIndex => _revealPlayerIndex;
   bool get roleCardRevealed => _roleCardRevealed;
@@ -240,6 +242,20 @@ class GameEngine extends ChangeNotifier {
         noVotes++;
       }
     });
+
+    // Save the election results before clearing votes in subsequent states
+    final Map<String, bool> playerIndexVotes = {};
+    _votes.forEach((index, vote) {
+      if (index >= 0 && index < _players.length) {
+        playerIndexVotes[_players[index].name] = vote;
+      }
+    });
+
+    _lastElectionResult = {
+      'nomineeName': nominatedChancellor!.name,
+      'passed': yesVotes > noVotes,
+      'votes': playerIndexVotes,
+    };
 
     log('Election results for Chancellor ${nominatedChancellor!.name}: $yesVotes Ja, $noVotes Nein.');
 

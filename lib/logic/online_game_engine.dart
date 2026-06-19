@@ -188,6 +188,7 @@ class OnlineGameEngine extends ChangeNotifier {
   String? get winReason => _gameData['winReason'];
   String? get investigatedParty => _gameData['investigatedParty'];
   int get investigatedPlayerIndex => _gameData['investigatedPlayerIndex'] ?? -1;
+  Map<String, dynamic>? get lastElectionResult => _gameData['lastElectionResult'];
 
   // Private role details
   String get myRoleName => _privateRoleData['role'] ?? 'Unknown';
@@ -351,6 +352,17 @@ class OnlineGameEngine extends ChangeNotifier {
     final targetChancellor = players[nominatedChancellorIndex];
     final logsCopy = List<String>.from(logs);
     logsCopy.add('نتایج انتخابات برای ${targetChancellor['name']}: $jaCount موافق، $neinCount مخالف.');
+
+    final lastElectionResult = {
+      'nomineeName': targetChancellor['name'],
+      'passed': jaCount > neinCount,
+      'votes': votes,
+    };
+
+    // First save the last election results so everyone receives it
+    await FirebaseManager.updateGame(lobbyCode, {
+      'lastElectionResult': lastElectionResult,
+    });
 
     if (jaCount > neinCount) {
       logsCopy.add('انتخابات تایید شد! ${targetChancellor['name']} اکنون صدراعظم است.');
