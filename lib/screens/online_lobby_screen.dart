@@ -13,8 +13,21 @@ class OnlineLobbyScreen extends StatelessWidget {
   }) : super(key: key);
 
   void _copyInviteLink(BuildContext context) {
-    // Generate simulated URL (which will work locally in web browser)
-    final inviteLink = 'http://localhost:8080/#/?lobby=${engine.lobbyCode}';
+    // Generate URL dynamically based on current web app location (or production fallback)
+    String inviteLink;
+    if (Uri.base.scheme == 'http' || Uri.base.scheme == 'https') {
+      final base = Uri.base;
+      inviteLink = Uri(
+        scheme: base.scheme,
+        host: base.host,
+        port: base.port,
+        path: base.path,
+        fragment: '/?lobby=${engine.lobbyCode}',
+      ).toString();
+    } else {
+      inviteLink = 'https://alireza-firuzi.github.io/secret-hitler/#/?lobby=${engine.lobbyCode}';
+    }
+
     Clipboard.setData(ClipboardData(text: inviteLink));
 
     ScaffoldMessenger.of(context).showSnackBar(

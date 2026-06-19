@@ -29,6 +29,33 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _checkLobbyCodeFromUrl();
+  }
+
+  void _checkLobbyCodeFromUrl() {
+    String? lobbyCode;
+    if (Uri.base.queryParameters.containsKey('lobby')) {
+      lobbyCode = Uri.base.queryParameters['lobby'];
+    } else if (Uri.base.fragment.contains('lobby=')) {
+      try {
+        String fragment = Uri.base.fragment;
+        if (fragment.startsWith('/')) {
+          fragment = fragment.substring(1);
+        }
+        final fragmentUri = Uri.parse(fragment);
+        lobbyCode = fragmentUri.queryParameters['lobby'];
+      } catch (_) {}
+    }
+
+    if (lobbyCode != null && lobbyCode.isNotEmpty) {
+      _codeController.text = lobbyCode.toUpperCase();
+      _isCreating = false;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _codeController.dispose();
