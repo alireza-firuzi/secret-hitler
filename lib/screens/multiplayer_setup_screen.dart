@@ -27,6 +27,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isCreating = true;
   bool _isLoading = false;
+  String _selectedAvatar = 'avatar_1';
 
   @override
   void initState() {
@@ -82,6 +83,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
         final lobbyCode = await FirebaseManager.createGame(
           hostName: name,
           hostId: playerId,
+          avatar: _selectedAvatar,
         );
         widget.onEnterLobby(lobbyCode, name, playerId);
       } else {
@@ -97,6 +99,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
           lobbyCode: code,
           playerName: name,
           playerId: playerId,
+          avatar: _selectedAvatar,
         );
 
         if (errorMsg == null) {
@@ -320,6 +323,59 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                                 controller: _nameController,
                                 style: const TextStyle(color: Colors.white, fontSize: 14),
                                 decoration: _buildInputDecoration('نام نمایشی خود را وارد کنید', Icons.person_outline),
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              const Text(
+                                'انتخاب آواتار',
+                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 4,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                ),
+                                itemCount: 8,
+                                itemBuilder: (context, index) {
+                                  final avatarName = 'avatar_${index + 1}';
+                                  final isSelected = _selectedAvatar == avatarName;
+                                  return GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedAvatar = avatarName;
+                                      });
+                                    },
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFFD4AF37) : Colors.white10,
+                                          width: isSelected ? 2.5 : 1,
+                                        ),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: const Color(0xFFD4AF37).withOpacity(0.3),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 1,
+                                                )
+                                              ]
+                                            : [],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.asset(
+                                          'assets/images/$avatarName.png',
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                               
                               if (!_isCreating) ...[

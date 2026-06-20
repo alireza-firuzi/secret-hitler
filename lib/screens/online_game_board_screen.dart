@@ -862,6 +862,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                   name: playerMap['name'],
                   isAlive: playerMap['isAlive'] == true,
                   isInvestigated: playerMap['isInvestigated'] == true,
+                  avatar: playerMap['avatar'] ?? 'avatar_1',
                 );
 
                 // Term limit checks

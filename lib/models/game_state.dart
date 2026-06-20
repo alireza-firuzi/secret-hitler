@@ -58,6 +58,7 @@ class Player {
   Role? role;
   bool isAlive;
   bool isInvestigated;
+  final String avatar;
 
   Player({
     required this.id,
@@ -65,6 +66,7 @@ class Player {
     this.role,
     this.isAlive = true,
     this.isInvestigated = false,
+    this.avatar = 'avatar_1',
   });
 
   Player copyWith({
@@ -73,6 +75,7 @@ class Player {
     Role? role,
     bool? isAlive,
     bool? isInvestigated,
+    String? avatar,
   }) {
     return Player(
       id: id ?? this.id,
@@ -80,6 +83,7 @@ class Player {
       role: role ?? this.role,
       isAlive: isAlive ?? this.isAlive,
       isInvestigated: isInvestigated ?? this.isInvestigated,
+      avatar: avatar ?? this.avatar,
     );
   }
 }

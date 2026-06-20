@@ -368,6 +368,20 @@ class PlayerSlotWidget extends StatelessWidget {
         ),
         child: Row(
           children: [
+            Opacity(
+              opacity: player.isAlive ? 1.0 : 0.4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.asset(
+                  'assets/images/${player.avatar}.png',
+                  width: 30,
+                  height: 30,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 30),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

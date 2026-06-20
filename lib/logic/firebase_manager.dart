@@ -84,6 +84,7 @@ class FirebaseManager {
   static Future<String> createGame({
     required String hostName,
     required String hostId,
+    String? avatar,
   }) async {
     final completer = Completer<String>();
     
@@ -106,6 +107,7 @@ class FirebaseManager {
       'action': 'create',
       'hostName': hostName,
       'playerId': hostId,
+      'avatar': avatar,
     }));
 
     return completer.future;
@@ -116,6 +118,7 @@ class FirebaseManager {
     required String lobbyCode,
     required String playerName,
     required String playerId,
+    String? avatar,
   }) async {
     final completer = Completer<String?>();
 
@@ -162,6 +165,7 @@ class FirebaseManager {
       'lobbyCode': lobbyCode,
       'playerName': playerName,
       'playerId': playerId,
+      'avatar': avatar,
     }));
 
     return completer.future;

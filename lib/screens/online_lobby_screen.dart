@@ -176,6 +176,17 @@ class OnlineLobbyScreen extends StatelessWidget {
                               style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(width: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.asset(
+                                'assets/images/${player['avatar'] ?? 'avatar_1'}.png',
+                                width: 30,
+                                height: 30,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 30),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             Text(
                               player['name'],
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),

@@ -138,7 +138,12 @@ class GameEngine extends ChangeNotifier {
     }
 
     for (int i = 0; i < playerCount; i++) {
-      _players.add(Player(id: i, name: names[i], role: roles[i]));
+      _players.add(Player(
+        id: i,
+        name: names[i],
+        role: roles[i],
+        avatar: 'avatar_${(i % 8) + 1}',
+      ));
     }
 
     // 2. Setup Policy Deck (6 Liberal, 11 Fascist)

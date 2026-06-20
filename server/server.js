@@ -76,7 +76,7 @@ wss.on('connection', (ws) => {
 
       switch (action) {
         case 'create': {
-          const { hostName } = payload;
+          const { hostName, avatar } = payload;
           const code = generateLobbyCode();
           
           const newGame = {
@@ -88,6 +88,7 @@ wss.on('connection', (ws) => {
               {
                 id: playerId,
                 name: hostName,
+                avatar: avatar || 'avatar_1',
                 isAlive: true,
                 isInvestigated: false,
                 isDisconnected: false,
@@ -127,7 +128,7 @@ wss.on('connection', (ws) => {
         }
 
         case 'join': {
-          const { playerName } = payload;
+          const { playerName, avatar } = payload;
           const game = games[lobbyCode];
 
           if (!game) {
@@ -198,6 +199,7 @@ wss.on('connection', (ws) => {
           game.players.push({
             id: playerId,
             name: playerName,
+            avatar: avatar || 'avatar_1',
             isAlive: true,
             isInvestigated: false,
             isDisconnected: false,
