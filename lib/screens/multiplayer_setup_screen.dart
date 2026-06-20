@@ -27,7 +27,6 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isCreating = true;
   bool _isLoading = false;
-  String _selectedAvatar = 'avatar_1';
 
   @override
   void initState() {
@@ -72,34 +71,56 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
       return;
     }
 
+    if (!_isCreating && code.isEmpty) {
+      _showError('لطفا کد لابی را وارد کنید.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
-    final String playerId = 'user_${RandomString.generate(6)}';
-
     try {
-      if (_isCreating) {
-        final lobbyCode = await FirebaseManager.createGame(
-          hostName: name,
-          hostId: playerId,
-          avatar: _selectedAvatar,
-        );
-        widget.onEnterLobby(lobbyCode, name, playerId);
-      } else {
-        if (code.isEmpty) {
-          _showError('لطفا کد لابی را وارد کنید.');
+      List<String> takenAvatars = [];
+      if (!_isCreating) {
+        final fetchedTaken = await FirebaseManager.checkLobby(lobbyCode: code);
+        if (fetchedTaken == null) {
           setState(() {
             _isLoading = false;
           });
           return;
         }
+        takenAvatars = fetchedTaken;
+      }
 
+      setState(() {
+        _isLoading = false;
+      });
+
+      final selectedAvatar = await _showAvatarSelectionDialog(takenAvatars);
+      if (selectedAvatar == null) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      final String playerId = 'user_${RandomString.generate(6)}';
+
+      if (_isCreating) {
+        final lobbyCode = await FirebaseManager.createGame(
+          hostName: name,
+          hostId: playerId,
+          avatar: selectedAvatar,
+        );
+        widget.onEnterLobby(lobbyCode, name, playerId);
+      } else {
         final errorMsg = await FirebaseManager.joinGame(
           lobbyCode: code,
           playerName: name,
           playerId: playerId,
-          avatar: _selectedAvatar,
+          avatar: selectedAvatar,
         );
 
         if (errorMsg == null) {
@@ -117,6 +138,163 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
         });
       }
     }
+  }
+
+  Future<String?> _showAvatarSelectionDialog(List<String> takenAvatars) {
+    String currentSelected = 'avatar_1';
+    for (int i = 1; i <= 12; i++) {
+      final name = 'avatar_$i';
+      if (!takenAvatars.contains(name)) {
+        currentSelected = name;
+        break;
+      }
+    }
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Dialog(
+                backgroundColor: const Color(0xFF1C1917),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Colors.white10),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  width: min(MediaQuery.of(context).size.width * 0.9, 450),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'انتخاب آواتار',
+                        style: TextStyle(
+                          color: Color(0xFFD4AF37),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'لطفاً آواتار خود را انتخاب کنید. آواتارها باید یکتا باشند.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      Flexible(
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: 12,
+                          itemBuilder: (context, index) {
+                            final avatarName = 'avatar_${index + 1}';
+                            final isTaken = takenAvatars.contains(avatarName);
+                            final isSelected = currentSelected == avatarName;
+
+                            return GestureDetector(
+                              onTap: isTaken
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        currentSelected = avatarName;
+                                      });
+                                    },
+                              child: Stack(
+                                children: [
+                                  Opacity(
+                                    opacity: isTaken ? 0.35 : 1.0,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? const Color(0xFFD4AF37)
+                                              : (isTaken ? Colors.red.withOpacity(0.3) : Colors.white10),
+                                          width: isSelected ? 2.5 : 1,
+                                        ),
+                                        boxShadow: isSelected
+                                            ? [
+                                                BoxShadow(
+                                                  color: const Color(0xFFD4AF37).withOpacity(0.3),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 1,
+                                                )
+                                              ]
+                                            : [],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.asset(
+                                          'assets/images/$avatarName.png',
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (isTaken)
+                                    Positioned.fill(
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.red.withOpacity(0.5)),
+                                          ),
+                                          child: const Text(
+                                            'گرفته شده',
+                                            style: TextStyle(color: Colors.red, fontSize: 8, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(null),
+                            child: const Text('انصراف', style: TextStyle(color: Colors.white30)),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(currentSelected),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF9E2A2B),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('تایید و ورود'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showError(String msg) {
@@ -325,58 +503,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                                 decoration: _buildInputDecoration('نام نمایشی خود را وارد کنید', Icons.person_outline),
                               ),
                               
-                              const SizedBox(height: 20),
-                              const Text(
-                                'انتخاب آواتار',
-                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 8),
-                              GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 4,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                ),
-                                itemCount: 8,
-                                itemBuilder: (context, index) {
-                                  final avatarName = 'avatar_${index + 1}';
-                                  final isSelected = _selectedAvatar == avatarName;
-                                  return GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedAvatar = avatarName;
-                                      });
-                                    },
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: isSelected ? const Color(0xFFD4AF37) : Colors.white10,
-                                          width: isSelected ? 2.5 : 1,
-                                        ),
-                                        boxShadow: isSelected
-                                            ? [
-                                                BoxShadow(
-                                                  color: const Color(0xFFD4AF37).withOpacity(0.3),
-                                                  blurRadius: 6,
-                                                  spreadRadius: 1,
-                                                )
-                                              ]
-                                            : [],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.asset(
-                                          'assets/images/$avatarName.png',
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                              const SizedBox(height: 12),
                               
                               if (!_isCreating) ...[
                                 const SizedBox(height: 20),

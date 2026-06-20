@@ -142,7 +142,7 @@ class GameEngine extends ChangeNotifier {
         id: i,
         name: names[i],
         role: roles[i],
-        avatar: 'avatar_${(i % 8) + 1}',
+        avatar: 'avatar_${(i % 12) + 1}',
       ));
     }
 

@@ -16,6 +16,7 @@ class FirebaseManager {
 
   // Maps to match request completers for getPrivateRole
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
+  static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
 
   static String get _wsUrl {
     if (kIsWeb) {
@@ -53,6 +54,13 @@ class FirebaseManager {
           } else if (type == 'error') {
             final errorMessage = payload['message'] ?? 'خطایی رخ داد';
             _errorStreamController.add(errorMessage);
+          } else if (type == 'lobbyChecked') {
+            final lobbyCode = payload['lobbyCode'] ?? '';
+            final takenAvatars = List<String>.from(payload['takenAvatars'] ?? []);
+            final completer = _checkLobbyCompleters.remove(lobbyCode);
+            if (completer != null && !completer.isCompleted) {
+              completer.complete(takenAvatars);
+            }
           } else if (type == 'privateRole') {
             final data = payload['data'] as Map<String, dynamic>?;
             // Match with active completer
@@ -222,6 +230,48 @@ class FirebaseManager {
         completer.complete(null);
       }
     });
+
+    return completer.future;
+  }
+
+  // Check the lobby existance and retrieve taken avatars list
+  static Future<List<String>?> checkLobby({
+    required String lobbyCode,
+  }) async {
+    final completer = Completer<List<String>?>();
+
+    if (_channel == null || !_firebaseInitialized) {
+      _connectWebSocket();
+      _firebaseInitialized = true;
+    }
+
+    late StreamSubscription errorSub;
+
+    void cleanup() {
+      errorSub.cancel();
+      _checkLobbyCompleters.remove(lobbyCode);
+    }
+
+    errorSub = errorStream.listen((errorMessage) {
+      cleanup();
+      if (!completer.isCompleted) {
+        completer.complete(null);
+      }
+    });
+
+    _checkLobbyCompleters[lobbyCode] = completer;
+
+    Timer(const Duration(seconds: 3), () {
+      if (!completer.isCompleted) {
+        cleanup();
+        completer.complete(null);
+      }
+    });
+
+    _channel!.sink.add(jsonEncode({
+      'action': 'checkLobby',
+      'lobbyCode': lobbyCode,
+    }));
 
     return completer.future;
   }

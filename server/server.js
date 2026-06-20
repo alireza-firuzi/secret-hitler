@@ -192,6 +192,13 @@ wss.on('connection', (ws) => {
             return;
           }
 
+          // Check for duplicate avatar
+          const isAvatarTaken = game.players.some(p => p.avatar === avatar);
+          if (isAvatarTaken) {
+            ws.send(JSON.stringify({ type: 'error', message: 'این آواتار قبلاً توسط بازیکن دیگری انتخاب شده است.' }));
+            return;
+          }
+
           clientLobbies.set(ws, lobbyCode);
           clientPlayerIds.set(ws, playerId);
 
@@ -215,6 +222,21 @@ wss.on('connection', (ws) => {
 
           // Notify everyone in the lobby
           broadcast(lobbyCode);
+          break;
+        }
+
+        case 'checkLobby': {
+          const game = games[lobbyCode];
+          if (!game) {
+            ws.send(JSON.stringify({ type: 'error', message: 'کد لابی یافت نشد.' }));
+            return;
+          }
+          const takenAvatars = game.players.map(p => p.avatar || 'avatar_1');
+          ws.send(JSON.stringify({
+            type: 'lobbyChecked',
+            lobbyCode: lobbyCode,
+            takenAvatars: takenAvatars,
+          }));
           break;
         }
 
