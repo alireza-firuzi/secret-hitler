@@ -60,6 +60,18 @@ function broadcast(lobbyCode) {
   }
 }
 
+function hasActiveConnection(lobbyCode, playerId, currentWs) {
+  for (const client of wss.clients) {
+    if (client !== currentWs &&
+        client.readyState === 1 &&
+        clientLobbies.get(client) === lobbyCode &&
+        clientPlayerIds.get(client) === playerId) {
+      return true;
+    }
+  }
+  return false;
+}
+
 wss.on('connection', (ws) => {
   console.log('New connection established.');
   ws.isAlive = true;
@@ -240,15 +252,54 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'leave': {
+          const game = games[lobbyCode];
+          if (game) {
+            const playerIndex = game.players.findIndex(p => p.id === playerId);
+            if (playerIndex !== -1) {
+              const name = game.players[playerIndex].name;
+              game.players.splice(playerIndex, 1);
+              const idIndex = game.playerIds.indexOf(playerId);
+              if (idIndex !== -1) {
+                game.playerIds.splice(idIndex, 1);
+              }
+              game.logs.push(`${name} از لابی خارج شد.`);
+              
+              if (game.hostId === playerId) {
+                if (game.players.length > 0) {
+                  game.hostId = game.players[0].id;
+                  game.logs.push(`${game.players[0].name} میزبان جدید لابی شد.`);
+                } else {
+                  delete games[lobbyCode];
+                  delete privateRoles[lobbyCode];
+                  console.log(`Lobby ${lobbyCode} deleted as it became empty.`);
+                }
+              }
+              broadcast(lobbyCode);
+            }
+          }
+          clientLobbies.delete(ws);
+          clientPlayerIds.delete(ws);
+          break;
+        }
+
         case 'subscribe': {
           const game = games[lobbyCode];
           if (game) {
             clientLobbies.set(ws, lobbyCode);
             clientPlayerIds.set(ws, playerId);
-            ws.send(JSON.stringify({
-              type: 'sync',
-              data: game,
-            }));
+            
+            const player = game.players.find(p => p.id === playerId);
+            if (player && player.isDisconnected) {
+              player.isDisconnected = false;
+              game.logs.push(`${player.name} مجدداً به بازی متصل شد.`);
+              broadcast(lobbyCode);
+            } else {
+              ws.send(JSON.stringify({
+                type: 'sync',
+                data: game,
+              }));
+            }
           } else {
             ws.send(JSON.stringify({ type: 'error', message: 'Lobby not found.' }));
           }
@@ -306,33 +357,54 @@ wss.on('connection', (ws) => {
       const game = games[lobbyCode];
       if (game) {
         if (game.status === 'lobby') {
-          // Remove player from lobby
-          const playerIndex = game.players.findIndex(p => p.id === playerId);
-          if (playerIndex !== -1) {
-            const name = game.players[playerIndex].name;
-            game.players.splice(playerIndex, 1);
-            const idIndex = game.playerIds.indexOf(playerId);
-            if (idIndex !== -1) {
-              game.playerIds.splice(idIndex, 1);
-            }
-            game.logs.push(`${name} از لابی خارج شد.`);
-            
-            // If host left, assign new host or delete lobby if empty
-            if (game.hostId === playerId) {
-              if (game.players.length > 0) {
-                game.hostId = game.players[0].id;
-                game.logs.push(`${game.players[0].name} میزبان جدید لابی شد.`);
-              } else {
-                delete games[lobbyCode];
-                delete privateRoles[lobbyCode];
-                console.log(`Lobby ${lobbyCode} deleted as it became empty.`);
-                return;
-              }
-            }
+          if (hasActiveConnection(lobbyCode, playerId, ws)) {
+            console.log(`Player ${playerId} closed old connection but has a newer active connection. Not removing.`);
+            return;
+          }
+
+          const player = game.players.find(p => p.id === playerId);
+          if (player) {
+            player.isDisconnected = true;
+            console.log(`Player ${player.name} disconnected from lobby. Starting 20s grace period.`);
             broadcast(lobbyCode);
+
+            setTimeout(() => {
+              const currentGame = games[lobbyCode];
+              if (currentGame && currentGame.status === 'lobby') {
+                const currentPlayer = currentGame.players.find(p => p.id === playerId);
+                if (currentPlayer && currentPlayer.isDisconnected && !hasActiveConnection(lobbyCode, playerId, null)) {
+                  const playerIndex = currentGame.players.findIndex(p => p.id === playerId);
+                  if (playerIndex !== -1) {
+                    const name = currentPlayer.name;
+                    currentGame.players.splice(playerIndex, 1);
+                    const idIndex = currentGame.playerIds.indexOf(playerId);
+                    if (idIndex !== -1) {
+                      currentGame.playerIds.splice(idIndex, 1);
+                    }
+                    currentGame.logs.push(`${name} به دلیل قطع ارتباط از لابی خارج شد.`);
+                    
+                    if (currentGame.hostId === playerId) {
+                      if (currentGame.players.length > 0) {
+                        currentGame.hostId = currentGame.players[0].id;
+                        currentGame.logs.push(`${currentGame.players[0].name} میزبان جدید لابی شد.`);
+                      } else {
+                        delete games[lobbyCode];
+                        delete privateRoles[lobbyCode];
+                        console.log(`Lobby ${lobbyCode} deleted as it became empty.`);
+                        return;
+                      }
+                    }
+                    broadcast(lobbyCode);
+                  }
+                }
+              }
+            }, 20000);
           }
         } else {
-          // Game is in progress, mark as disconnected and pause
+          if (hasActiveConnection(lobbyCode, playerId, ws)) {
+            console.log(`Player ${playerId} closed old connection but has a newer active connection. Not marking as disconnected.`);
+            return;
+          }
           const player = game.players.find(p => p.id === playerId);
           if (player) {
             player.isDisconnected = true;

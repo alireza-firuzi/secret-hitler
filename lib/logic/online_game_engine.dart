@@ -27,7 +27,7 @@ class OnlineGameEngine extends ChangeNotifier {
   @override
   void dispose() {
     _subscription?.cancel();
-    FirebaseManager.clearActiveSubscription();
+    FirebaseManager.leaveGame(lobbyCode, localPlayerId);
     super.dispose();
   }
 

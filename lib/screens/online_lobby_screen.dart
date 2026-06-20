@@ -199,6 +199,21 @@ class OnlineLobbyScreen extends StatelessWidget {
                               ),
                             ],
                             const Spacer(),
+                            if (player['isDisconnected'] == true) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.red.withOpacity(0.6)),
+                                ),
+                                child: const Text(
+                                  'قطع ارتباط',
+                                  style: TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
                             if (isPlayerHost)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

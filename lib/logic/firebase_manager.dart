@@ -54,6 +54,9 @@ class FirebaseManager {
 
   static void _connectWebSocket() {
     try {
+      try {
+        _channel?.sink.close();
+      } catch (_) {}
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
       _channel!.stream.listen(
         (message) {
@@ -121,14 +124,12 @@ class FirebaseManager {
 
   static void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    if (_activeLobbyCode != null && _activePlayerId != null) {
-      _reconnectTimer = Timer(const Duration(seconds: 3), () {
-        if (!_firebaseInitialized) {
-          print("Attempting to reconnect WebSocket...");
-          _connectWebSocket();
-        }
-      });
-    }
+    _reconnectTimer = Timer(const Duration(seconds: 3), () {
+      if (!_firebaseInitialized) {
+        print("Attempting to reconnect WebSocket...");
+        _connectWebSocket();
+      }
+    });
   }
 
   // Create a new game lobby
@@ -154,6 +155,18 @@ class FirebaseManager {
       }
     });
 
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        tempSub.cancel();
+        _firebaseInitialized = false;
+        try {
+          _channel?.sink.close();
+        } catch (_) {}
+        _channel = null;
+        completer.completeError(TimeoutException('پاسخی از سرور دریافت نشد.'));
+      }
+    });
+
     _channel!.sink.add(jsonEncode({
       'action': 'create',
       'hostName': hostName,
@@ -161,7 +174,9 @@ class FirebaseManager {
       'avatar': avatar,
     }));
 
-    return completer.future;
+    final result = await completer.future;
+    timer.cancel();
+    return result;
   }
 
   // Join an existing game lobby
@@ -203,10 +218,15 @@ class FirebaseManager {
       completer.complete(errorMessage);
     });
 
-    // Timeout after 3 seconds if lobby not found
-    Timer(const Duration(seconds: 3), () {
+    // Timeout after 10 seconds if lobby not found
+    final timer = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
         cleanup();
+        _firebaseInitialized = false;
+        try {
+          _channel?.sink.close();
+        } catch (_) {}
+        _channel = null;
         completer.complete('پاسخی از سرور دریافت نشد. لطفاً کد لابی را بررسی کنید.');
       }
     });
@@ -219,7 +239,9 @@ class FirebaseManager {
       'avatar': avatar,
     }));
 
-    return completer.future;
+    final result = await completer.future;
+    timer.cancel();
+    return result;
   }
 
   // Stream updates for a game
@@ -271,15 +293,17 @@ class FirebaseManager {
       'playerId': playerId,
     }));
 
-    // Timeout fallback
-    Timer(const Duration(seconds: 2), () {
+    // Timeout fallback (5 seconds)
+    final timer = Timer(const Duration(seconds: 5), () {
       if (!completer.isCompleted) {
         _privateRoleCompleters.remove(key);
         completer.complete(null);
       }
     });
 
-    return completer.future;
+    final result = await completer.future;
+    timer.cancel();
+    return result;
   }
 
   // Check the lobby existance and retrieve taken avatars list
@@ -309,9 +333,14 @@ class FirebaseManager {
 
     _checkLobbyCompleters[lobbyCode] = completer;
 
-    Timer(const Duration(seconds: 3), () {
+    final timer = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
         cleanup();
+        _firebaseInitialized = false;
+        try {
+          _channel?.sink.close();
+        } catch (_) {}
+        _channel = null;
         completer.complete(null);
       }
     });
@@ -321,6 +350,29 @@ class FirebaseManager {
       'lobbyCode': lobbyCode,
     }));
 
-    return completer.future;
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
+  // Explicitly notify the server we are leaving the lobby/game
+  static Future<void> leaveGame(String lobbyCode, String playerId) async {
+    try {
+      if (_channel != null && _firebaseInitialized) {
+        _channel!.sink.add(jsonEncode({
+          'action': 'leave',
+          'lobbyCode': lobbyCode,
+          'playerId': playerId,
+        }));
+      }
+    } catch (e) {
+      print("Error sending leave game action: $e");
+    }
+    clearActiveSubscription();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+    _firebaseInitialized = false;
   }
 }
