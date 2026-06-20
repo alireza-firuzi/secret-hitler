@@ -18,6 +18,18 @@ class FirebaseManager {
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
   static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
 
+  static String? _activeLobbyCode;
+  static String? _activePlayerId;
+  static Timer? _reconnectTimer;
+
+  static void clearActiveSubscription() {
+    _activeLobbyCode = null;
+    _activePlayerId = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    print("Cleared active subscription, reconnect loop terminated.");
+  }
+
   static String get _wsUrl {
     if (kIsWeb) {
       final uri = Uri.base;
@@ -41,51 +53,82 @@ class FirebaseManager {
   }
 
   static void _connectWebSocket() {
-    _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
-    _channel!.stream.listen(
-      (message) {
-        try {
-          final payload = jsonDecode(message as String);
-          final type = payload['type'];
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
+      _channel!.stream.listen(
+        (message) {
+          try {
+            final payload = jsonDecode(message as String);
+            final type = payload['type'];
 
-          if (type == 'sync' || type == 'created' || type == 'joined') {
-            final data = payload['data'] as Map<String, dynamic>?;
-            _gameStreamController.add(data);
-          } else if (type == 'error') {
-            final errorMessage = payload['message'] ?? 'خطایی رخ داد';
-            _errorStreamController.add(errorMessage);
-          } else if (type == 'lobbyChecked') {
-            final lobbyCode = payload['lobbyCode'] ?? '';
-            final takenAvatars = List<String>.from(payload['takenAvatars'] ?? []);
-            final completer = _checkLobbyCompleters.remove(lobbyCode);
-            if (completer != null && !completer.isCompleted) {
-              completer.complete(takenAvatars);
-            }
-          } else if (type == 'privateRole') {
-            final data = payload['data'] as Map<String, dynamic>?;
-            // Match with active completer
-            final lobbyCode = payload['lobbyCode'] ?? '';
-            final playerId = payload['playerId'] ?? '';
-            final key = '${lobbyCode}_$playerId';
+            if (type == 'sync' || type == 'created' || type == 'joined') {
+              final data = payload['data'] as Map<String, dynamic>?;
+              _gameStreamController.add(data);
+            } else if (type == 'error') {
+              final errorMessage = payload['message'] ?? 'خطایی رخ داد';
+              _errorStreamController.add(errorMessage);
+            } else if (type == 'lobbyChecked') {
+              final lobbyCode = payload['lobbyCode'] ?? '';
+              final takenAvatars = List<String>.from(payload['takenAvatars'] ?? []);
+              final completer = _checkLobbyCompleters.remove(lobbyCode);
+              if (completer != null && !completer.isCompleted) {
+                completer.complete(takenAvatars);
+              }
+            } else if (type == 'privateRole') {
+              final data = payload['data'] as Map<String, dynamic>?;
+              // Match with active completer
+              final lobbyCode = payload['lobbyCode'] ?? '';
+              final playerId = payload['playerId'] ?? '';
+              final key = '${lobbyCode}_$playerId';
 
-            final completer = _privateRoleCompleters.remove(key);
-            if (completer != null && !completer.isCompleted) {
-              completer.complete(data);
+              final completer = _privateRoleCompleters.remove(key);
+              if (completer != null && !completer.isCompleted) {
+                completer.complete(data);
+              }
             }
+          } catch (e) {
+            print("Error parsing WebSocket message: $e");
           }
-        } catch (e) {
-          print("Error parsing WebSocket message: $e");
+        },
+        onError: (err) {
+          print("WebSocket Error: $err");
+          _firebaseInitialized = false;
+          _scheduleReconnect();
+        },
+        onDone: () {
+          print("WebSocket Connection Closed");
+          _firebaseInitialized = false;
+          _scheduleReconnect();
+        },
+      );
+      _firebaseInitialized = true;
+
+      // Resubscribe if active lobby is set
+      if (_activeLobbyCode != null && _activePlayerId != null) {
+        _channel?.sink.add(jsonEncode({
+          'action': 'subscribe',
+          'lobbyCode': _activeLobbyCode,
+          'playerId': _activePlayerId,
+        }));
+        print("Resubscribed to lobby $_activeLobbyCode for player $_activePlayerId");
+      }
+    } catch (e) {
+      print("WebSocket Connection Exception: $e");
+      _firebaseInitialized = false;
+      _scheduleReconnect();
+    }
+  }
+
+  static void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    if (_activeLobbyCode != null && _activePlayerId != null) {
+      _reconnectTimer = Timer(const Duration(seconds: 3), () {
+        if (!_firebaseInitialized) {
+          print("Attempting to reconnect WebSocket...");
+          _connectWebSocket();
         }
-      },
-      onError: (err) {
-        print("WebSocket Error: $err");
-        _firebaseInitialized = false;
-      },
-      onDone: () {
-        print("WebSocket Connection Closed");
-        _firebaseInitialized = false;
-      },
-    );
+      });
+    }
   }
 
   // Create a new game lobby
@@ -181,6 +224,11 @@ class FirebaseManager {
 
   // Stream updates for a game
   static Stream<Map<String, dynamic>?> streamGame(String lobbyCode, String playerId) {
+    _activeLobbyCode = lobbyCode;
+    _activePlayerId = playerId;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+
     // Send subscription request to the server
     _channel?.sink.add(jsonEncode({
       'action': 'subscribe',
