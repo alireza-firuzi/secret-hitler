@@ -132,7 +132,10 @@ class GameEngine extends ChangeNotifier {
     // 1. Assign Roles
     final int playerCount = names.length;
     final List<Role> roles = _generateRolesForCount(playerCount);
-    roles.shuffle(Random());
+    final random = Random();
+    for (int i = 0; i < 3; i++) {
+      roles.shuffle(random);
+    }
 
     for (int i = 0; i < playerCount; i++) {
       _players.add(Player(id: i, name: names[i], role: roles[i]));
@@ -145,7 +148,9 @@ class GameEngine extends ChangeNotifier {
     for (int i = 0; i < 11; i++) {
       _deck.add(PolicyType.fascist);
     }
-    _deck.shuffle(Random());
+    for (int i = 0; i < 3; i++) {
+      _deck.shuffle(random);
+    }
 
     log('Game started with $playerCount players.');
     notifyListeners();
@@ -304,7 +309,10 @@ class GameEngine extends ChangeNotifier {
       log('Deck has ${_deck.length} cards, which is less than $countNeeded. Reshuffling discard pile into the deck.');
       _deck.addAll(_discardPile);
       _discardPile.clear();
-      _deck.shuffle(Random());
+      final random = Random();
+      for (int i = 0; i < 3; i++) {
+        _deck.shuffle(random);
+      }
     }
   }
 
@@ -512,6 +520,17 @@ class GameEngine extends ChangeNotifier {
     // Reset current chancellor
     _chancellorIndex = -1;
     _nominatedChancellorIndex = -1;
+
+    // Reshuffle deck if fewer than 3 cards remain at the end of the session
+    if (_deck.length < 3) {
+      log('Deck has ${_deck.length} cards remaining at the end of the session. Reshuffling discard pile into the deck.');
+      _deck.addAll(_discardPile);
+      _discardPile.clear();
+      final random = Random();
+      for (int i = 0; i < 3; i++) {
+        _deck.shuffle(random);
+      }
+    }
 
     _rotatePresident();
     notifyListeners();

@@ -226,7 +226,10 @@ class OnlineGameEngine extends ChangeNotifier {
     // 1. Generate Roles & Shuffled Deck
     final playerCount = players.length;
     final List<String> roles = _generateRolesForCount(playerCount);
-    roles.shuffle();
+    final random = Random();
+    for (int i = 0; i < 3; i++) {
+      roles.shuffle(random);
+    }
 
     // 2. Prepare Private Roles map
     final Map<String, Map<String, dynamic>> privateRolesMap = {};
@@ -283,7 +286,9 @@ class OnlineGameEngine extends ChangeNotifier {
     final List<String> deck = [];
     for (int i = 0; i < 6; i++) deck.add('liberal');
     for (int i = 0; i < 11; i++) deck.add('fascist');
-    deck.shuffle();
+    for (int i = 0; i < 3; i++) {
+      deck.shuffle(random);
+    }
 
     // 5. Update Game Document to transition phase
     final logsCopy = List<String>.from(logs);
@@ -435,7 +440,10 @@ class OnlineGameEngine extends ChangeNotifier {
       currentLogs.add('مخلوط کردن مجدد کارت‌های سوخته در دسته کارت‌ها.');
       final List<dynamic> newDeck = List.from(deck)..addAll(discard);
       discard.clear();
-      newDeck.shuffle();
+      final random = Random();
+      for (int i = 0; i < 3; i++) {
+        newDeck.shuffle(random);
+      }
       return newDeck;
     }
     return deck;
@@ -518,24 +526,38 @@ class OnlineGameEngine extends ChangeNotifier {
         });
         return;
       }
+    }
 
-      // Check if presidential power triggers (only for regular enactments)
-      if (!isChaos) {
-        final power = _getPowerForFascistSlot(newFas, players.length);
-        if (power != 'none') {
-          currentLogs.add('اقدام رئیس‌جمهوری باز شد: $power.');
-          await FirebaseManager.updateGame(lobbyCode, {
-            'fascistPolicies': newFas,
-            'discardPile': discard,
-            'drawnPolicies': [],
-            'phase': 'executiveAction',
-            'activePower': power,
-            'investigatedParty': null,
-            'investigatedPlayerIndex': -1,
-            'logs': currentLogs,
-          });
-          return;
-        }
+    // Reshuffle deck immediately at the end of the session if < 3 cards remain
+    List<dynamic> finalDeck = List.from(_gameData['deck'] ?? []);
+    List<dynamic> finalDiscard = List.from(discard);
+    if (finalDeck.length < 3) {
+      currentLogs.add('کارت‌های باقی‌مانده در دسته کارت‌ها کمتر از ۳ عدد است. مخلوط کردن مجدد کارت‌های سوخته.');
+      finalDeck.addAll(finalDiscard);
+      finalDiscard.clear();
+      final random = Random();
+      for (int i = 0; i < 3; i++) {
+        finalDeck.shuffle(random);
+      }
+    }
+
+    // Check if presidential power triggers (only for regular enactments)
+    if (policy != 'liberal' && !isChaos) {
+      final power = _getPowerForFascistSlot(newFas, players.length);
+      if (power != 'none') {
+        currentLogs.add('اقدام رئیس‌جمهوری باز شد: $power.');
+        await FirebaseManager.updateGame(lobbyCode, {
+          'fascistPolicies': newFas,
+          'deck': finalDeck,
+          'discardPile': finalDiscard,
+          'drawnPolicies': [],
+          'phase': 'executiveAction',
+          'activePower': power,
+          'investigatedParty': null,
+          'investigatedPlayerIndex': -1,
+          'logs': currentLogs,
+        });
+        return;
       }
     }
 
@@ -546,7 +568,8 @@ class OnlineGameEngine extends ChangeNotifier {
       nextTracker: 0,
       newFas: newFas,
       newLib: newLib,
-      newDiscard: discard,
+      newDiscard: finalDiscard,
+      newDeck: finalDeck,
       isChaos: isChaos,
     );
   }
@@ -692,6 +715,7 @@ class OnlineGameEngine extends ChangeNotifier {
     int? newLib,
     List<dynamic>? newDiscard,
     List<dynamic>? newPlayersList,
+    List<dynamic>? newDeck,
     bool isChaos = false,
   }) async {
     final activePlayersList = newPlayersList ?? players;
@@ -748,6 +772,7 @@ class OnlineGameEngine extends ChangeNotifier {
     };
 
     if (newPlayersList != null) updates['players'] = newPlayersList;
+    if (newDeck != null) updates['deck'] = newDeck;
     if (newFas != null) updates['fascistPolicies'] = newFas;
     if (newLib != null) updates['liberalPolicies'] = newLib;
     if (newDiscard != null) updates['discardPile'] = newDiscard;
