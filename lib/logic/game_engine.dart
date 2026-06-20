@@ -385,7 +385,7 @@ class GameEngine extends ChangeNotifier {
     } else {
       SoundManager.play(SoundEvent.alarm);
     }
-    _completeRound();
+    _completeRound(isChaos: isChaos);
   }
 
   void _enactChaosPolicy() {
@@ -499,10 +499,15 @@ class GameEngine extends ChangeNotifier {
     _completeRound();
   }
 
-  void _completeRound() {
+  void _completeRound({bool isChaos = false}) {
     // Record current term limits
-    _previousPresidentIndex = _presidentIndex;
-    _previousChancellorIndex = _chancellorIndex;
+    if (isChaos) {
+      _previousPresidentIndex = -1;
+      _previousChancellorIndex = -1;
+    } else {
+      _previousPresidentIndex = _presidentIndex;
+      _previousChancellorIndex = _chancellorIndex;
+    }
 
     // Reset current chancellor
     _chancellorIndex = -1;

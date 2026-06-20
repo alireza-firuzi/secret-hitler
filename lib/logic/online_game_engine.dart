@@ -117,9 +117,15 @@ class OnlineGameEngine extends ChangeNotifier {
           _fetchPrivateRole();
         }
 
-        // Host checks if all votes are in during electionVoting
-        if (isHost && phaseStr == 'electionVoting' && votes.length >= alivePlayersCount) {
-          _triggerHostTally();
+        // Tally check: Host (if alive and connected) or current President (as fallback)
+        if (phaseStr == 'electionVoting' && votes.length >= alivePlayersCount) {
+          final hostPlayer = players.firstWhere((p) => p['id'] == hostId, orElse: () => null);
+          final bool isHostActive = hostPlayer != null && hostPlayer['isAlive'] == true && hostPlayer['isDisconnected'] != true;
+          
+          final bool shouldITally = isHostActive ? isHost : isMyTurnPresident;
+          if (shouldITally) {
+            _triggerHostTally();
+          }
         }
 
         notifyListeners();
@@ -336,9 +342,13 @@ class OnlineGameEngine extends ChangeNotifier {
     });
   }
 
-  // Tally votes (Host only)
+  // Tally votes (Host or President fallback if host is dead/disconnected)
   Future<void> tallyVotes() async {
-    if (!isHost || phaseStr != 'electionVoting') return;
+    final hostPlayer = players.firstWhere((p) => p['id'] == hostId, orElse: () => null);
+    final bool isHostActive = hostPlayer != null && hostPlayer['isAlive'] == true && hostPlayer['isDisconnected'] != true;
+    
+    final bool canITally = isHostActive ? isHost : isMyTurnPresident;
+    if (!canITally || phaseStr != 'electionVoting') return;
 
     int jaCount = 0;
     int neinCount = 0;
@@ -530,7 +540,15 @@ class OnlineGameEngine extends ChangeNotifier {
     }
 
     // Normal round wrap-up
-    await _rotatePresident(currentLogs, failedElection: false, nextTracker: 0, newFas: newFas, newLib: newLib, newDiscard: discard);
+    await _rotatePresident(
+      currentLogs,
+      failedElection: false,
+      nextTracker: 0,
+      newFas: newFas,
+      newLib: newLib,
+      newDiscard: discard,
+      isChaos: isChaos,
+    );
   }
 
   Future<void> _enactChaosPolicy(List<String> currentLogs) async {
@@ -661,10 +679,6 @@ class OnlineGameEngine extends ChangeNotifier {
         'logs': logsCopy,
       });
     } else {
-      await FirebaseManager.updateGame(lobbyCode, {
-        'players': playersCopy,
-        'activePower': 'none',
-      });
       await _rotatePresident(logsCopy, failedElection: false, nextTracker: 0, newPlayersList: playersCopy);
     }
   }
@@ -678,6 +692,7 @@ class OnlineGameEngine extends ChangeNotifier {
     int? newLib,
     List<dynamic>? newDiscard,
     List<dynamic>? newPlayersList,
+    bool isChaos = false,
   }) async {
     final activePlayersList = newPlayersList ?? players;
     int nextPresident = presidentIndex;
@@ -686,7 +701,10 @@ class OnlineGameEngine extends ChangeNotifier {
     int newPrevPres = previousPresidentIndex;
     int newPrevChan = previousChancellorIndex;
 
-    if (!failedElection) {
+    if (isChaos) {
+      newPrevPres = -1;
+      newPrevChan = -1;
+    } else if (!failedElection) {
       newPrevPres = presidentIndex;
       newPrevChan = chancellorIndex;
     }
@@ -726,8 +744,10 @@ class OnlineGameEngine extends ChangeNotifier {
       'logs': currentLogs,
       'previousPresidentIndex': newPrevPres,
       'previousChancellorIndex': newPrevChan,
+      'activePower': 'none',
     };
 
+    if (newPlayersList != null) updates['players'] = newPlayersList;
     if (newFas != null) updates['fascistPolicies'] = newFas;
     if (newLib != null) updates['liberalPolicies'] = newLib;
     if (newDiscard != null) updates['discardPile'] = newDiscard;
