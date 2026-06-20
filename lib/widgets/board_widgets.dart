@@ -348,10 +348,10 @@ class PlayerSlotWidget extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(vertical: 4.0),
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
           color: cardBgColor,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: (isPresident || isChancellor)
               ? [
@@ -371,17 +371,17 @@ class PlayerSlotWidget extends StatelessWidget {
             Opacity(
               opacity: player.isAlive ? 1.0 : 0.4,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(22),
                 child: Image.asset(
                   'assets/images/${player.avatar}.png',
-                  width: 30,
-                  height: 30,
+                  width: 44,
+                  height: 44,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 30),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 44),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +390,7 @@ class PlayerSlotWidget extends StatelessWidget {
                     player.name,
                     style: TextStyle(
                       color: player.isAlive ? Colors.white : Colors.white38,
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       decoration: player.isAlive
                           ? TextDecoration.none

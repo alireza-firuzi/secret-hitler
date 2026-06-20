@@ -1333,25 +1333,39 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     }
 
     if (phase == 'electionVoting') {
+      final nominee = widget.engine.nominatedChancellorIndex != -1 && widget.engine.nominatedChancellorIndex < widget.engine.players.length
+          ? widget.engine.players[widget.engine.nominatedChancellorIndex]
+          : null;
       final hasVoted = widget.engine.votes.containsKey(widget.engine.localPlayerId);
-      if (hasVoted || !widget.engine.amIAlive) {
-        return const SizedBox.shrink();
-      }
+      final showButtons = !hasVoted && widget.engine.amIAlive;
 
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ElevatedButton(
-            onPressed: () => widget.engine.castVote(true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF438A5E)),
-            child: const Text('موافق (JA)', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 24),
-          ElevatedButton(
-            onPressed: () => widget.engine.castVote(false),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9E2A2B)),
-            child: const Text('مخالف (NEIN)', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
+          if (nominee != null) ...[
+            _buildNomineeCard(
+              name: nominee['name'],
+              avatar: nominee['avatar'] ?? 'avatar_1',
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (showButtons)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () => widget.engine.castVote(true),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF438A5E)),
+                  child: const Text('موافق (JA)', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 24),
+                ElevatedButton(
+                  onPressed: () => widget.engine.castVote(false),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9E2A2B)),
+                  child: const Text('مخالف (NEIN)', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
         ],
       );
     }
@@ -1369,6 +1383,63 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     }
 
     return const SizedBox.shrink();
+  }
+
+  Widget _buildNomineeCard({required String name, required String avatar}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F1A19),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF75B2FF).withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF75B2FF).withOpacity(0.1),
+            blurRadius: 8,
+            spreadRadius: 1,
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: Image.asset(
+              'assets/images/$avatar.png',
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 50),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'نامزد صدراعظم',
+                style: TextStyle(
+                  color: Color(0xFF75B2FF),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLegislativeCards({required bool isPresident}) {

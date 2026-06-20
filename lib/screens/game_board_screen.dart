@@ -960,6 +960,10 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
       _localVotes.putIfAbsent(player.id, () => true); // default Ja
     }
 
+    final nominee = widget.engine.nominatedChancellorIndex != -1
+        ? widget.engine.players[widget.engine.nominatedChancellorIndex]
+        : null;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -974,49 +978,63 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
               ),
               content: SizedBox(
                 width: double.maxFinite,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: alivePlayers.length,
-                  itemBuilder: (context, index) {
-                    final player = alivePlayers[index];
-                    final bool isJa = _localVotes[player.id] ?? true;
-
-                    return ListTile(
-                      title: Text(player.name, style: const TextStyle(color: Colors.white)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('Ja'),
-                            selected: isJa,
-                            selectedColor: const Color(0xFF438A5E),
-                            labelStyle: TextStyle(color: isJa ? Colors.black : Colors.white),
-                            onSelected: (selected) {
-                              if (selected) {
-                                setDialogState(() {
-                                  _localVotes[player.id] = true;
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('Nein'),
-                            selected: !isJa,
-                            selectedColor: const Color(0xFF9E2A2B),
-                            labelStyle: TextStyle(color: !isJa ? Colors.white : Colors.white60),
-                            onSelected: (selected) {
-                              if (selected) {
-                                setDialogState(() {
-                                  _localVotes[player.id] = false;
-                                });
-                              }
-                            },
-                          ),
-                        ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (nominee != null) ...[
+                      _buildNomineeCard(
+                        name: nominee.name,
+                        avatar: nominee.avatar,
                       ),
-                    );
-                  },
+                      const SizedBox(height: 16),
+                    ],
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: alivePlayers.length,
+                        itemBuilder: (context, index) {
+                          final player = alivePlayers[index];
+                          final bool isJa = _localVotes[player.id] ?? true;
+
+                          return ListTile(
+                            title: Text(player.name, style: const TextStyle(color: Colors.white)),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ChoiceChip(
+                                  label: const Text('Ja'),
+                                  selected: isJa,
+                                  selectedColor: const Color(0xFF438A5E),
+                                  labelStyle: TextStyle(color: isJa ? Colors.black : Colors.white),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setDialogState(() {
+                                        _localVotes[player.id] = true;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: const Text('Nein'),
+                                  selected: !isJa,
+                                  selectedColor: const Color(0xFF9E2A2B),
+                                  labelStyle: TextStyle(color: !isJa ? Colors.white : Colors.white60),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setDialogState(() {
+                                        _localVotes[player.id] = false;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               actions: [
@@ -1041,6 +1059,63 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildNomineeCard({required String name, required String avatar}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F1A19),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF75B2FF).withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF75B2FF).withOpacity(0.1),
+            blurRadius: 8,
+            spreadRadius: 1,
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: Image.asset(
+              'assets/images/$avatar.png',
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 50),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'نامزد صدراعظم',
+                style: TextStyle(
+                  color: Color(0xFF75B2FF),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
