@@ -59,6 +59,7 @@ class Player {
   bool isAlive;
   bool isInvestigated;
   final String avatar;
+  final int totalSpeakingTime;
 
   Player({
     required this.id,
@@ -67,6 +68,7 @@ class Player {
     this.isAlive = true,
     this.isInvestigated = false,
     this.avatar = 'avatar_1',
+    this.totalSpeakingTime = 0,
   });
 
   Player copyWith({
@@ -76,6 +78,7 @@ class Player {
     bool? isAlive,
     bool? isInvestigated,
     String? avatar,
+    int? totalSpeakingTime,
   }) {
     return Player(
       id: id ?? this.id,
@@ -84,6 +87,7 @@ class Player {
       isAlive: isAlive ?? this.isAlive,
       isInvestigated: isInvestigated ?? this.isInvestigated,
       avatar: avatar ?? this.avatar,
+      totalSpeakingTime: totalSpeakingTime ?? this.totalSpeakingTime,
     );
   }
 }

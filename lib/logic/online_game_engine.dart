@@ -40,7 +40,7 @@ class OnlineGameEngine extends ChangeNotifier {
         final previousPhase = _gameData['phase'];
         final previousFas = _gameData['fascistPolicies'] ?? 0;
         final previousLib = _gameData['liberalPolicies'] ?? 0;
-        final previousVotesCount = (_gameData['votes'] as Map?)?.length ?? 0;
+        final previousActiveDiscussionPlayerIndex = _gameData['activeDiscussionPlayerIndex'] ?? -1;
 
         _gameData = data;
         _isLoading = false;
@@ -54,35 +54,16 @@ class OnlineGameEngine extends ChangeNotifier {
             final currentPhase = phaseStr;
             final currentFas = fascistPolicies;
             final currentLib = liberalPolicies;
-            final currentVotesCount = votes.length;
             final currentInvestigated = investigatedPlayerIndex;
             final currentAlive = alivePlayersCount;
 
             final previousInvestigated = _gameData['investigatedPlayerIndex'] ?? -1;
             final previousAlive = (_gameData['players'] as List?)?.where((p) => p['isAlive'] == true).length ?? 0;
 
+            // 1. Check phase transition sounds
             if (currentPhase != previousPhase) {
-              if (previousPhase == 'electionVoting') {
-                if (currentPhase == 'legislativePresident' || 
-                    (currentPhase == 'gameOver' && winReason != null && winReason!.contains('elected'))) {
-                  SoundManager.play(SoundEvent.vetoSucceeds);
-                } else {
-                  SoundManager.play(SoundEvent.vetoFails);
-                }
-              }
-
-              if (currentPhase == 'roleReveal') {
+              if (currentPhase == 'roleReveal' || currentPhase == 'electionNomination') {
                 SoundManager.play(SoundEvent.shuffle);
-              } else if (currentPhase == 'electionNomination') {
-                SoundManager.play(SoundEvent.shuffle);
-              } else if (currentPhase == 'electionVoting') {
-                // Silent
-              } else if (currentPhase == 'legislativePresident') {
-                SoundManager.play(SoundEvent.presidentReceivesPolicies);
-              } else if (currentPhase == 'legislativeChancellor') {
-                SoundManager.play(SoundEvent.chancellorReceivesPolicies);
-              } else if (currentPhase == 'executiveAction') {
-                SoundManager.play(SoundEvent.alarm);
               } else if (currentPhase == 'gameOver') {
                 if (winner == 'Liberals') {
                   if (winReason != null && winReason!.contains('executed')) {
@@ -98,12 +79,14 @@ class OnlineGameEngine extends ChangeNotifier {
                   }
                 }
               }
-            } else {
-              // Same phase, check action diffs
+            }
+
+            // 2. Check independent action/policy event sounds (played regardless of phase changes, but not if game is over)
+            if (currentPhase != 'gameOver') {
               if (currentFas > previousFas) {
                 SoundManager.play(SoundEvent.alarm);
               } else if (currentLib > previousLib) {
-                SoundManager.play(SoundEvent.enactPolicy);
+                SoundManager.play(SoundEvent.vetoSucceeds);
               } else if (currentInvestigated != previousInvestigated && currentInvestigated != -1) {
                 SoundManager.play(SoundEvent.policyInvestigate);
               } else if (currentAlive < previousAlive) {
@@ -203,13 +186,21 @@ class OnlineGameEngine extends ChangeNotifier {
     if (activeDiscussionPlayerIndex == -1) return false;
     final currentSpeaker = players[activeDiscussionPlayerIndex];
     final isMyTurn = currentSpeaker['id'] == localPlayerId;
-    final isTimerExpired = DateTime.now().millisecondsSinceEpoch > discussionEndTime;
+    final isTimerStarted = discussionEndTime > 0;
+    final isTimerExpired = isTimerStarted && DateTime.now().millisecondsSinceEpoch > discussionEndTime;
     return isMyTurn || isHost || isTimerExpired;
   }
 
   Future<void> updateDiscussionDuration(int seconds) async {
     await FirebaseManager.updateGame(lobbyCode, {
       'discussionDuration': seconds,
+    });
+  }
+
+  Future<void> startDiscussionTimer() async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await FirebaseManager.updateGame(lobbyCode, {
+      'discussionEndTime': now + discussionDuration * 1000,
     });
   }
 
@@ -416,32 +407,6 @@ class OnlineGameEngine extends ChangeNotifier {
           'logs': logsCopy,
         });
       } else {
-        final duration = discussionDuration;
-        if (duration > 0) {
-          int firstSpeakerIndex = -1;
-          for (int i = 0; i < players.length; i++) {
-            if (players[i]['isAlive'] == true) {
-              firstSpeakerIndex = i;
-              break;
-            }
-          }
-
-          if (firstSpeakerIndex != -1) {
-            final now = DateTime.now().millisecondsSinceEpoch;
-            final speakerName = players[firstSpeakerIndex]['name'];
-            logsCopy.add('نوبت صحبت بازیکن: $speakerName');
-            
-            await FirebaseManager.updateGame(lobbyCode, {
-              'chancellorIndex': nominatedChancellorIndex,
-              'electionTracker': 0,
-              'phase': 'discussion',
-              'activeDiscussionPlayerIndex': firstSpeakerIndex,
-              'discussionEndTime': now + duration * 1000,
-              'logs': logsCopy,
-            });
-            return;
-          }
-        }
         await _drawPoliciesForLegislative(logsCopy);
       }
     } else {
@@ -471,27 +436,67 @@ class OnlineGameEngine extends ChangeNotifier {
     }
 
     final logsCopy = List<String>.from(logs);
+
+    // Calculate actual speaking time for current speaker
+    int secondsSpoken = 0;
+    if (discussionEndTime > 0) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final startTime = discussionEndTime - duration * 1000;
+      final elapsedMs = now - startTime;
+      final elapsedSeconds = (elapsedMs / 1000).round();
+      secondsSpoken = elapsedSeconds.clamp(0, duration);
+    }
+
+    final updatedPlayers = List<Map<String, dynamic>>.from(
+      players.map((p) => Map<String, dynamic>.from(p as Map))
+    );
+    if (currentIdx != -1 && currentIdx < updatedPlayers.length) {
+      final currentSpeaker = updatedPlayers[currentIdx];
+      final currentSpeakingTime = currentSpeaker['totalSpeakingTime'] ?? 0;
+      currentSpeaker['totalSpeakingTime'] = currentSpeakingTime + secondsSpoken;
+    }
     
     if (nextSpeakerIndex != -1) {
-      final nextPlayerName = players[nextSpeakerIndex]['name'];
+      final nextPlayerName = updatedPlayers[nextSpeakerIndex]['name'];
       logsCopy.add('نوبت صحبت بازیکن: $nextPlayerName');
       
-      final now = DateTime.now().millisecondsSinceEpoch;
       await FirebaseManager.updateGame(lobbyCode, {
+        'players': updatedPlayers,
         'activeDiscussionPlayerIndex': nextSpeakerIndex,
-        'discussionEndTime': now + duration * 1000,
-        'logs': logsCopy,
-      });
-    } else {
-      logsCopy.add('پایان نوبت‌های صحبت. شروع دور قانون‌گذاری.');
-      
-      await FirebaseManager.updateGame(lobbyCode, {
-        'activeDiscussionPlayerIndex': -1,
         'discussionEndTime': 0,
         'logs': logsCopy,
       });
+    } else {
+      logsCopy.add('پایان نوبت‌های صحبت.');
       
-      await _drawPoliciesForLegislative(logsCopy);
+      final nextPhase = _gameData['discussionNextPhase'] ?? 'electionNomination';
+      final nextPower = _gameData['discussionNextPower'] ?? 'none';
+      final isChaos = _gameData['discussionIsChaos'] ?? false;
+
+      final Map<String, dynamic> updates = {
+        'players': updatedPlayers,
+        'activeDiscussionPlayerIndex': -1,
+        'discussionEndTime': 0,
+        'logs': logsCopy,
+      };
+
+      if (nextPhase == 'executiveAction') {
+        updates['phase'] = 'executiveAction';
+        updates['activePower'] = nextPower;
+        updates['investigatedParty'] = null;
+        updates['investigatedPlayerIndex'] = -1;
+        updates['drawnPolicies'] = [];
+        await FirebaseManager.updateGame(lobbyCode, updates);
+      } else {
+        await FirebaseManager.updateGame(lobbyCode, updates);
+        await _rotatePresident(
+          logsCopy,
+          failedElection: false,
+          nextTracker: 0,
+          isChaos: isChaos,
+          newPlayersList: updatedPlayers,
+        );
+      }
     }
   }
 
@@ -621,6 +626,42 @@ class OnlineGameEngine extends ChangeNotifier {
       final random = Random();
       for (int i = 0; i < 3; i++) {
         finalDeck.shuffle(random);
+      }
+    }
+
+    final duration = discussionDuration;
+    if (duration > 0) {
+      int firstSpeakerIndex = -1;
+      for (int i = 0; i < players.length; i++) {
+        if (players[i]['isAlive'] == true) {
+          firstSpeakerIndex = i;
+          break;
+        }
+      }
+
+      if (firstSpeakerIndex != -1) {
+        final speakerName = players[firstSpeakerIndex]['name'];
+        currentLogs.add('نوبت صحبت بازیکن: $speakerName');
+
+        String power = 'none';
+        if (policy != 'liberal' && !isChaos) {
+          power = _getPowerForFascistSlot(newFas, players.length);
+        }
+
+        await FirebaseManager.updateGame(lobbyCode, {
+          'fascistPolicies': newFas,
+          'liberalPolicies': newLib,
+          'deck': finalDeck,
+          'discardPile': finalDiscard,
+          'phase': 'discussion',
+          'activeDiscussionPlayerIndex': firstSpeakerIndex,
+          'discussionEndTime': 0,
+          'discussionNextPhase': power != 'none' ? 'executiveAction' : 'electionNomination',
+          'discussionNextPower': power,
+          'discussionIsChaos': isChaos,
+          'logs': currentLogs,
+        });
+        return;
       }
     }
 
@@ -852,6 +893,8 @@ class OnlineGameEngine extends ChangeNotifier {
       'previousPresidentIndex': newPrevPres,
       'previousChancellorIndex': newPrevChan,
       'activePower': 'none',
+      'activeDiscussionPlayerIndex': -1,
+      'discussionEndTime': 0,
     };
 
     if (newPlayersList != null) updates['players'] = newPlayersList;

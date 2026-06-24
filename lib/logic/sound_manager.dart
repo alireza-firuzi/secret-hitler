@@ -28,11 +28,19 @@ class SoundManager {
   static bool get isMuted => _muted;
 
   static AudioPlayer? _loopPlayer;
+  static AudioPlayer? _currentPlayer;
 
   static void setMuted(bool muted) {
     _muted = muted;
     if (muted) {
       stopLoop();
+      if (_currentPlayer != null) {
+        try {
+          _currentPlayer!.stop();
+          _currentPlayer!.dispose();
+        } catch (_) {}
+        _currentPlayer = null;
+      }
     }
   }
 
@@ -40,14 +48,28 @@ class SoundManager {
     if (_muted) return;
 
     try {
+      if (_currentPlayer != null) {
+        try {
+          await _currentPlayer!.stop();
+          await _currentPlayer!.dispose();
+        } catch (_) {}
+        _currentPlayer = null;
+      }
+
       final player = AudioPlayer();
+      _currentPlayer = player;
       final String fileName = _getFileName(event);
       // AssetSource assumes assets/ as default prefix
       await player.play(AssetSource('sounds/$fileName'));
       
       // Auto dispose player after playback completes to free resources
       player.onPlayerComplete.listen((_) {
-        player.dispose();
+        if (_currentPlayer == player) {
+          _currentPlayer = null;
+        }
+        try {
+          player.dispose();
+        } catch (_) {}
       });
     } catch (e) {
       print("Error playing sound $event: $e");

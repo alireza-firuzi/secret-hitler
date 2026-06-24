@@ -311,6 +311,7 @@ class PlayerSlotWidget extends StatelessWidget {
   final bool isChancellor;
   final bool isNominatedChancellor;
   final bool isEligible;
+  final bool isSpeaking;
   final VoidCallback? onTap;
 
   const PlayerSlotWidget({
@@ -320,6 +321,7 @@ class PlayerSlotWidget extends StatelessWidget {
     required this.isChancellor,
     required this.isNominatedChancellor,
     required this.isEligible,
+    this.isSpeaking = false,
     this.onTap,
   }) : super(key: key);
 
@@ -330,6 +332,9 @@ class PlayerSlotWidget extends StatelessWidget {
 
     if (!player.isAlive) {
       cardBgColor = Colors.black45;
+    } else if (isSpeaking) {
+      cardBgColor = const Color(0xFF4A3E3B);
+      borderColor = const Color(0xFFD4AF37);
     } else if (isPresident) {
       cardBgColor = const Color(0xFF4A3E3B);
       borderColor = const Color(0xFFD4AF37);
@@ -353,15 +358,17 @@ class PlayerSlotWidget extends StatelessWidget {
           color: cardBgColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: 1.5),
-          boxShadow: (isPresident || isChancellor)
+          boxShadow: (isPresident || isChancellor || isSpeaking)
               ? [
                   BoxShadow(
-                    color: (isPresident
+                    color: (isSpeaking
                             ? const Color(0xFFD4AF37)
-                            : const Color(0xFF75B2FF))
-                        .withOpacity(0.2),
-                    blurRadius: 4,
-                    spreadRadius: 1,
+                            : isPresident
+                                ? const Color(0xFFD4AF37)
+                                : const Color(0xFF75B2FF))
+                        .withOpacity(isSpeaking ? 0.35 : 0.2),
+                    blurRadius: isSpeaking ? 8 : 4,
+                    spreadRadius: isSpeaking ? 2 : 1,
                   )
                 ]
               : [],
@@ -397,7 +404,16 @@ class PlayerSlotWidget extends StatelessWidget {
                           : TextDecoration.lineThrough,
                     ),
                   ),
-                  if (player.isInvestigated)
+                  const SizedBox(height: 2),
+                  Text(
+                    'زمان صحبت: ${player.totalSpeakingTime} ثانیه',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                  ),
+                  if (player.isInvestigated) ...[
+                    const SizedBox(height: 2),
                     const Text(
                       'بررسی وفاداری شده',
                       style: TextStyle(
@@ -406,9 +422,14 @@ class PlayerSlotWidget extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
+            if (isSpeaking) ...[
+              const Icon(Icons.mic, color: Color(0xFFD4AF37), size: 18),
+              const SizedBox(width: 8),
+            ],
             const SizedBox(width: 8),
             // Badges
             if (!player.isAlive)

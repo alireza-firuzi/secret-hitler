@@ -479,6 +479,11 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
             ),
             centerTitle: true,
             actions: [
+              if (widget.engine.isHost && widget.engine.phaseStr != 'roleReveal')
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Color(0xFFD4AF37)),
+                  onPressed: _showDiscussionSettingsDialog,
+                ),
               IconButton(
                 icon: const Icon(Icons.exit_to_app, color: Color(0xFF9E2A2B)),
                 onPressed: _showQuitConfirmation,
@@ -864,10 +869,13 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                   isAlive: playerMap['isAlive'] == true,
                   isInvestigated: playerMap['isInvestigated'] == true,
                   avatar: playerMap['avatar'] ?? 'avatar_1',
+                  totalSpeakingTime: playerMap['totalSpeakingTime'] ?? 0,
                 );
 
                 // Term limit checks
                 final bool isEligible = _isEligibleForChancellor(index);
+
+                final bool isSpeaking = widget.engine.phaseStr == 'discussion' && index == widget.engine.activeDiscussionPlayerIndex;
 
                 return PlayerSlotWidget(
                   player: player,
@@ -875,6 +883,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
                   isChancellor: isChancellor,
                   isNominatedChancellor: isNominatedChancellor,
                   isEligible: isEligible,
+                  isSpeaking: isSpeaking,
                   onTap: () {
                     _onPlayerTapped(index);
                   },
@@ -1051,7 +1060,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
         children: [
           GestureDetector(
             onTap: () {
-              SoundManager.play(SoundEvent.presidentReceivesPolicies);
+              // Silent
               setState(() {
                 _revealSecretCard = true;
               });
@@ -1199,16 +1208,38 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     final isPres = widget.engine.isMyTurnPresident;
     final isChan = widget.engine.isMyTurnChancellor;
 
+    final isDiscussion = phase == 'discussion';
+    final speakerIndex = isDiscussion ? widget.engine.activeDiscussionPlayerIndex : -1;
+    final isMyDiscussionTurn = isDiscussion &&
+        speakerIndex != -1 &&
+        speakerIndex < widget.engine.players.length &&
+        widget.engine.players[speakerIndex]['id'] == widget.engine.localPlayerId;
+
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFF2C2523),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2523),
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
         ),
+        border: isMyDiscussionTurn
+            ? const Border(
+                top: BorderSide(color: Color(0xFFD4AF37), width: 2),
+                left: BorderSide(color: Color(0xFFD4AF37), width: 2),
+                right: BorderSide(color: Color(0xFFD4AF37), width: 2),
+              )
+            : null,
         boxShadow: [
-          BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, -3))
+          if (isMyDiscussionTurn)
+            BoxShadow(
+              color: const Color(0xFFD4AF37).withOpacity(0.3),
+              blurRadius: 15,
+              spreadRadius: 3,
+              offset: const Offset(0, -3),
+            )
+          else
+            const BoxShadow(color: Colors.black54, blurRadius: 10, offset: Offset(0, -3))
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -1277,11 +1308,23 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
         break;
       case 'discussion':
         final speakerIndex = widget.engine.activeDiscussionPlayerIndex;
-        final speakerName = speakerIndex != -1 && speakerIndex < widget.engine.players.length
-            ? widget.engine.players[speakerIndex]['name']
-            : '';
-        title = 'نوبت صحبت بازیکنان';
-        subtitle = 'در حال حاضر، نوبت صحبت بازیکن $speakerName است.';
+        final speaker = speakerIndex != -1 && speakerIndex < widget.engine.players.length
+            ? widget.engine.players[speakerIndex]
+            : null;
+        final isMyTurn = speaker != null && speaker['id'] == widget.engine.localPlayerId;
+        final isTimerStarted = widget.engine.discussionEndTime > 0;
+        
+        if (isMyTurn) {
+          title = '🚨 نوبت صحبت شماست 🚨';
+          subtitle = isTimerStarted
+              ? 'زمان صحبت شما شروع شده است! شروع به صحبت کنید.'
+              : 'نوبت شماست! برای شروع تایمر، دکمه «شروع صحبت» را در پایین صفحه فشار دهید.';
+        } else {
+          title = 'نوبت صحبت بازیکنان';
+          subtitle = isTimerStarted
+              ? 'در حال حاضر، نوبت صحبت بازیکن ${speaker?['name'] ?? ''} است.'
+              : 'منتظر شروع صحبت بازیکن ${speaker?['name'] ?? ''}...';
+        }
         break;
       default:
         title = 'وضعیت آنلاین';
@@ -1464,27 +1507,66 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
           const SizedBox(height: 16),
           DiscussionTimerWidget(
             endTimeMs: widget.engine.discussionEndTime,
+            durationSeconds: widget.engine.discussionDuration,
             onTimeExpired: () {
-              SoundManager.play(SoundEvent.alarm);
+              SoundManager.play(SoundEvent.vetoSucceeds);
             },
           ),
           const SizedBox(height: 16),
-          if (canIControl) ...[
-            ElevatedButton.icon(
-              onPressed: () => widget.engine.nextDiscussionTurn(),
-              icon: const Icon(Icons.skip_next, size: 18),
-              label: Text(isMyTurn ? 'پایان نوبت من' : 'نفر بعدی'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isMyTurn ? const Color(0xFF438A5E) : const Color(0xFF9E2A2B),
-                minimumSize: const Size(180, 44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          if (widget.engine.discussionEndTime == 0) ...[
+            if (isMyTurn) ...[
+              ElevatedButton.icon(
+                onPressed: () => widget.engine.startDiscussionTimer(),
+                icon: const Icon(Icons.play_arrow, size: 18, color: Colors.white),
+                label: const Text('شروع صحبت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF438A5E),
+                  minimumSize: const Size(180, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => widget.engine.nextDiscussionTurn(),
+                child: const Text('رد کردن نوبت من', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              ),
+            ] else ...[
+              Text(
+                'منتظر شروع صحبت بازیکن ${speaker['name']}...',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              if (widget.engine.isHost) ...[
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => widget.engine.nextDiscussionTurn(),
+                  icon: const Icon(Icons.skip_next, size: 18),
+                  label: const Text('نفر بعدی (میزبان)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF9E2A2B),
+                    minimumSize: const Size(180, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ],
           ] else ...[
-            const Text(
-              'منتظر پایان صحبت یا اتمام زمان...',
-              style: TextStyle(color: Colors.white24, fontSize: 11),
-            ),
+            if (canIControl) ...[
+              ElevatedButton.icon(
+                onPressed: () => widget.engine.nextDiscussionTurn(),
+                icon: const Icon(Icons.skip_next, size: 18),
+                label: Text(isMyTurn ? 'پایان نوبت من' : 'نفر بعدی'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isMyTurn ? const Color(0xFF438A5E) : const Color(0xFF9E2A2B),
+                  minimumSize: const Size(180, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ] else ...[
+              const Text(
+                'منتظر پایان صحبت یا اتمام زمان...',
+                style: TextStyle(color: Colors.white24, fontSize: 11),
+              ),
+            ],
           ],
         ],
       );
@@ -1941,6 +2023,93 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     );
   }
 
+  void _showDiscussionSettingsDialog() {
+    int tempDuration = widget.engine.discussionDuration;
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                backgroundColor: const Color(0xFF2C2523),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: const Color(0xFFD4AF37).withOpacity(0.3)),
+                ),
+                title: const Text(
+                  'تنظیمات زمان صحبت',
+                  style: TextStyle(color: Color(0xFFD4AF37), fontFamily: 'serif', fontWeight: FontWeight.bold),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'مدت زمان نوبت صحبت هر بازیکن پس از تایید هر دولت را انتخاب کنید:',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: tempDuration,
+                          dropdownColor: const Color(0xFF2C2523),
+                          style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 14),
+                          items: const [
+                            DropdownMenuItem(value: 0, child: Text('غیرفعال')),
+                            DropdownMenuItem(value: 30, child: Text('۳۰ ثانیه')),
+                            DropdownMenuItem(value: 60, child: Text('۱ دقیقه')),
+                            DropdownMenuItem(value: 90, child: Text('۱.۵ دقیقه')),
+                            DropdownMenuItem(value: 120, child: Text('۲ دقیقه')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                tempDuration = val;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('انصراف', style: TextStyle(color: Colors.white54)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      widget.engine.updateDiscussionDuration(tempDuration);
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('تنظیمات زمان صحبت با موفقیت به‌روزرسانی شد.'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF438A5E)),
+                    child: const Text('ذخیره', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showQuitConfirmation() {
     showDialog(
       context: context,
@@ -1974,11 +2143,13 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
 
 class DiscussionTimerWidget extends StatefulWidget {
   final int endTimeMs;
+  final int durationSeconds;
   final VoidCallback onTimeExpired;
 
   const DiscussionTimerWidget({
     Key? key,
     required this.endTimeMs,
+    required this.durationSeconds,
     required this.onTimeExpired,
   }) : super(key: key);
 
@@ -1999,7 +2170,7 @@ class _DiscussionTimerWidgetState extends State<DiscussionTimerWidget> {
   @override
   void didUpdateWidget(covariant DiscussionTimerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.endTimeMs != widget.endTimeMs) {
+    if (oldWidget.endTimeMs != widget.endTimeMs || oldWidget.durationSeconds != widget.durationSeconds) {
       _timer?.cancel();
       _startTimer();
     }
@@ -2013,13 +2184,22 @@ class _DiscussionTimerWidgetState extends State<DiscussionTimerWidget> {
 
   void _startTimer() {
     _updateSeconds();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      _updateSeconds();
-    });
+    if (widget.endTimeMs > 0) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) return;
+        _updateSeconds();
+      });
+    }
   }
 
   void _updateSeconds() {
+    if (widget.endTimeMs == 0) {
+      setState(() {
+        _secondsLeft = widget.durationSeconds;
+        _timer?.cancel();
+      });
+      return;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = widget.endTimeMs - now;
     setState(() {
@@ -2034,35 +2214,51 @@ class _DiscussionTimerWidgetState extends State<DiscussionTimerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLowTime = _secondsLeft <= 10;
-    
-    // Play tick sound on low time
-    if (_secondsLeft > 0 && isLowTime) {
-      SoundManager.play(SoundEvent.clockTick);
-    }
+    final bool isNotStarted = widget.endTimeMs == 0;
+    final bool isLowTime = !isNotStarted && _secondsLeft <= 10;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: isLowTime ? const Color(0xFF9E2A2B).withOpacity(0.15) : Colors.black26,
+        color: isNotStarted
+            ? Colors.white.withOpacity(0.03)
+            : isLowTime
+                ? const Color(0xFF9E2A2B).withOpacity(0.15)
+                : Colors.black26,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isLowTime ? const Color(0xFF9E2A2B) : const Color(0xFFD4AF37).withOpacity(0.3),
+          color: isNotStarted
+              ? Colors.white24
+              : isLowTime
+                  ? const Color(0xFF9E2A2B)
+                  : const Color(0xFFD4AF37).withOpacity(0.3),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.alarm,
-            color: isLowTime ? const Color(0xFF9E2A2B) : const Color(0xFFD4AF37),
+            isNotStarted
+                ? Icons.timer_outlined
+                : Icons.alarm,
+            color: isNotStarted
+                ? Colors.white30
+                : isLowTime
+                    ? const Color(0xFF9E2A2B)
+                    : const Color(0xFFD4AF37),
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
-            '$_secondsLeft ثانیه باقی‌مانده',
+            isNotStarted
+                ? 'آماده شروع: $_secondsLeft ثانیه'
+                : '$_secondsLeft ثانیه باقی‌مانده',
             style: TextStyle(
-              color: isLowTime ? const Color(0xFF9E2A2B) : Colors.white,
+              color: isNotStarted
+                  ? Colors.white54
+                  : isLowTime
+                      ? const Color(0xFF9E2A2B)
+                      : Colors.white,
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),

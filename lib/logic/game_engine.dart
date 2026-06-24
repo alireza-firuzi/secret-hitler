@@ -184,7 +184,7 @@ class GameEngine extends ChangeNotifier {
   void toggleRevealRole() {
     _roleCardRevealed = !_roleCardRevealed;
     if (_roleCardRevealed) {
-      SoundManager.play(SoundEvent.presidentReceivesPolicies);
+      // Silent
     }
     notifyListeners();
   }
@@ -281,7 +281,7 @@ class GameEngine extends ChangeNotifier {
         log('Fascists win! $_winReason');
         SoundManager.play(SoundEvent.fascistsWinHitlerElected);
       } else {
-        SoundManager.play(SoundEvent.vetoSucceeds);
+        // Silent during voting
         // Draw policies for the President
         _drawPoliciesForLegislative();
       }
@@ -289,7 +289,7 @@ class GameEngine extends ChangeNotifier {
       // Election failed
       _electionTracker++;
       log('The election failed. Election tracker is now at $_electionTracker/3.');
-      SoundManager.play(SoundEvent.vetoFails);
+      // Silent during voting
 
       if (_electionTracker >= 3) {
         // Chaos rule: enact top policy
@@ -331,7 +331,7 @@ class GameEngine extends ChangeNotifier {
 
     _phase = GamePhase.legislativeChancellor;
     log('${currentPresident.name} discarded a policy and passed 2 cards to Chancellor ${currentChancellor!.name}.');
-    SoundManager.play(SoundEvent.chancellorReceivesPolicies);
+    // Silent
     notifyListeners();
   }
 
@@ -394,7 +394,7 @@ class GameEngine extends ChangeNotifier {
 
     // Normal round wrap-up
     if (policy == PolicyType.liberal) {
-      SoundManager.play(SoundEvent.enactPolicy);
+      SoundManager.play(SoundEvent.vetoSucceeds);
     } else {
       SoundManager.play(SoundEvent.alarm);
     }
