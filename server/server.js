@@ -123,6 +123,9 @@ wss.on('connection', (ws) => {
             winReason: null,
             investigatedParty: null,
             investigatedPlayerIndex: -1,
+            discussionDuration: 60,
+            activeDiscussionPlayerIndex: -1,
+            discussionEndTime: 0,
           };
 
           games[code] = newGame;

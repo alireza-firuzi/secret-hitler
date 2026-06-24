@@ -235,6 +235,72 @@ class OnlineLobbyScreen extends StatelessWidget {
                 ),
               ),
 
+              const SizedBox(height: 16),
+
+              // Settings Panel
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2523),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer, color: Color(0xFFD4AF37), size: 20),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'نوبت صحبت پس از تایید دولت',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'مدت زمان نوبت صحبت هر بازیکن پس از تایید رای‌گیری',
+                            style: TextStyle(color: Colors.white38, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isHost)
+                      DropdownButton<int>(
+                        value: engine.discussionDuration,
+                        dropdownColor: const Color(0xFF2C2523),
+                        underline: const SizedBox(),
+                        style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 13),
+                        items: const [
+                          DropdownMenuItem(value: 0, child: Text('غیرفعال')),
+                          DropdownMenuItem(value: 30, child: Text('۳۰ ثانیه')),
+                          DropdownMenuItem(value: 60, child: Text('۱ دقیقه')),
+                          DropdownMenuItem(value: 90, child: Text('۱.۵ دقیقه')),
+                          DropdownMenuItem(value: 120, child: Text('۲ دقیقه')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            engine.updateDiscussionDuration(val);
+                          }
+                        },
+                      )
+                    else
+                      Text(
+                        engine.discussionDuration == 0
+                            ? 'غیرفعال'
+                            : engine.discussionDuration == 60
+                                ? '۱ دقیقه'
+                                : engine.discussionDuration == 90
+                                    ? '۱.۵ دقیقه'
+                                    : engine.discussionDuration == 120
+                                        ? '۲ دقیقه'
+                                        : '${engine.discussionDuration} ثانیه',
+                        style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               // Action controls

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../logic/online_game_engine.dart';
 import '../logic/sound_manager.dart';
@@ -1274,6 +1275,14 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
             ? _getPowerSubtitle(widget.engine.activePowerStr)
             : '$executorTitle $executorName در حال اجرای قدرت است: ${_translatePower(widget.engine.activePowerStr)}...';
         break;
+      case 'discussion':
+        final speakerIndex = widget.engine.activeDiscussionPlayerIndex;
+        final speakerName = speakerIndex != -1 && speakerIndex < widget.engine.players.length
+            ? widget.engine.players[speakerIndex]['name']
+            : '';
+        title = 'نوبت صحبت بازیکنان';
+        subtitle = 'در حال حاضر، نوبت صحبت بازیکن $speakerName است.';
+        break;
       default:
         title = 'وضعیت آنلاین';
         subtitle = '';
@@ -1380,6 +1389,105 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
 
     if (phase == 'executiveAction' && widget.engine.isMyTurnToExecutePower) {
       return _buildExecutivePowerPanel();
+    }
+
+    if (phase == 'discussion') {
+      final speakerIndex = widget.engine.activeDiscussionPlayerIndex;
+      if (speakerIndex == -1 || speakerIndex >= widget.engine.players.length) {
+        return const SizedBox.shrink();
+      }
+      final speaker = widget.engine.players[speakerIndex];
+      final isMyTurn = speaker['id'] == widget.engine.localPlayerId;
+      final canIControl = widget.engine.canIControlDiscussion;
+
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F1A19),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isMyTurn ? const Color(0xFFD4AF37) : Colors.white10,
+                width: isMyTurn ? 1.5 : 1,
+              ),
+              boxShadow: [
+                if (isMyTurn)
+                  BoxShadow(
+                    color: const Color(0xFFD4AF37).withOpacity(0.15),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+              ],
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/${speaker['avatar'] ?? 'avatar_1'}.png',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white24, size: 40),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        speaker['name'],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isMyTurn ? 'نوبت صحبت شماست' : 'در حال صحبت...',
+                        style: TextStyle(
+                          color: isMyTurn ? const Color(0xFFD4AF37) : Colors.white54,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          DiscussionTimerWidget(
+            endTimeMs: widget.engine.discussionEndTime,
+            onTimeExpired: () {
+              SoundManager.play(SoundEvent.alarm);
+            },
+          ),
+          const SizedBox(height: 16),
+          if (canIControl) ...[
+            ElevatedButton.icon(
+              onPressed: () => widget.engine.nextDiscussionTurn(),
+              icon: const Icon(Icons.skip_next, size: 18),
+              label: Text(isMyTurn ? 'پایان نوبت من' : 'نفر بعدی'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isMyTurn ? const Color(0xFF438A5E) : const Color(0xFF9E2A2B),
+                minimumSize: const Size(180, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ] else ...[
+            const Text(
+              'منتظر پایان صحبت یا اتمام زمان...',
+              style: TextStyle(color: Colors.white24, fontSize: 11),
+            ),
+          ],
+        ],
+      );
     }
 
     return const SizedBox.shrink();
@@ -1860,6 +1968,107 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+class DiscussionTimerWidget extends StatefulWidget {
+  final int endTimeMs;
+  final VoidCallback onTimeExpired;
+
+  const DiscussionTimerWidget({
+    Key? key,
+    required this.endTimeMs,
+    required this.onTimeExpired,
+  }) : super(key: key);
+
+  @override
+  State<DiscussionTimerWidget> createState() => _DiscussionTimerWidgetState();
+}
+
+class _DiscussionTimerWidgetState extends State<DiscussionTimerWidget> {
+  Timer? _timer;
+  int _secondsLeft = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant DiscussionTimerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.endTimeMs != widget.endTimeMs) {
+      _timer?.cancel();
+      _startTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _updateSeconds();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      _updateSeconds();
+    });
+  }
+
+  void _updateSeconds() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = widget.endTimeMs - now;
+    setState(() {
+      _secondsLeft = (diff / 1000).round();
+      if (_secondsLeft <= 0) {
+        _secondsLeft = 0;
+        _timer?.cancel();
+        widget.onTimeExpired();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isLowTime = _secondsLeft <= 10;
+    
+    // Play tick sound on low time
+    if (_secondsLeft > 0 && isLowTime) {
+      SoundManager.play(SoundEvent.clockTick);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: isLowTime ? const Color(0xFF9E2A2B).withOpacity(0.15) : Colors.black26,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isLowTime ? const Color(0xFF9E2A2B) : const Color(0xFFD4AF37).withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.alarm,
+            color: isLowTime ? const Color(0xFF9E2A2B) : const Color(0xFFD4AF37),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$_secondsLeft ثانیه باقی‌مانده',
+            style: TextStyle(
+              color: isLowTime ? const Color(0xFF9E2A2B) : Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

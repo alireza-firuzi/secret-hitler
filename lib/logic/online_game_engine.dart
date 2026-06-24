@@ -192,8 +192,26 @@ class OnlineGameEngine extends ChangeNotifier {
   String? get winner => _gameData['winner'];
   String? get winReason => _gameData['winReason'];
   String? get investigatedParty => _gameData['investigatedParty'];
-  int get investigatedPlayerIndex => _gameData['investigatedPlayerIndex'] ?? -1;
   Map<String, dynamic>? get lastElectionResult => _gameData['lastElectionResult'];
+  int get investigatedPlayerIndex => _gameData['investigatedPlayerIndex'] ?? -1;
+
+  int get discussionDuration => _gameData['discussionDuration'] ?? 60;
+  int get activeDiscussionPlayerIndex => _gameData['activeDiscussionPlayerIndex'] ?? -1;
+  int get discussionEndTime => _gameData['discussionEndTime'] ?? 0;
+
+  bool get canIControlDiscussion {
+    if (activeDiscussionPlayerIndex == -1) return false;
+    final currentSpeaker = players[activeDiscussionPlayerIndex];
+    final isMyTurn = currentSpeaker['id'] == localPlayerId;
+    final isTimerExpired = DateTime.now().millisecondsSinceEpoch > discussionEndTime;
+    return isMyTurn || isHost || isTimerExpired;
+  }
+
+  Future<void> updateDiscussionDuration(int seconds) async {
+    await FirebaseManager.updateGame(lobbyCode, {
+      'discussionDuration': seconds,
+    });
+  }
 
   // Private role details
   String get myRoleName => _privateRoleData['role'] ?? 'Unknown';
@@ -300,6 +318,8 @@ class OnlineGameEngine extends ChangeNotifier {
       'phase': 'roleReveal',
       'deck': deck,
       'discardPile': [],
+      'activeDiscussionPlayerIndex': -1,
+      'discussionEndTime': 0,
       'logs': logsCopy,
     });
   }
@@ -396,7 +416,32 @@ class OnlineGameEngine extends ChangeNotifier {
           'logs': logsCopy,
         });
       } else {
-        // Enact successful government, draw cards
+        final duration = discussionDuration;
+        if (duration > 0) {
+          int firstSpeakerIndex = -1;
+          for (int i = 0; i < players.length; i++) {
+            if (players[i]['isAlive'] == true) {
+              firstSpeakerIndex = i;
+              break;
+            }
+          }
+
+          if (firstSpeakerIndex != -1) {
+            final now = DateTime.now().millisecondsSinceEpoch;
+            final speakerName = players[firstSpeakerIndex]['name'];
+            logsCopy.add('نوبت صحبت بازیکن: $speakerName');
+            
+            await FirebaseManager.updateGame(lobbyCode, {
+              'chancellorIndex': nominatedChancellorIndex,
+              'electionTracker': 0,
+              'phase': 'discussion',
+              'activeDiscussionPlayerIndex': firstSpeakerIndex,
+              'discussionEndTime': now + duration * 1000,
+              'logs': logsCopy,
+            });
+            return;
+          }
+        }
         await _drawPoliciesForLegislative(logsCopy);
       }
     } else {
@@ -410,6 +455,43 @@ class OnlineGameEngine extends ChangeNotifier {
       } else {
         await _rotatePresident(logsCopy, failedElection: true, nextTracker: newTracker);
       }
+    }
+  }
+
+  Future<void> nextDiscussionTurn() async {
+    final int currentIdx = activeDiscussionPlayerIndex;
+    final int duration = discussionDuration;
+    
+    int nextSpeakerIndex = -1;
+    for (int i = currentIdx + 1; i < players.length; i++) {
+      if (players[i]['isAlive'] == true) {
+        nextSpeakerIndex = i;
+        break;
+      }
+    }
+
+    final logsCopy = List<String>.from(logs);
+    
+    if (nextSpeakerIndex != -1) {
+      final nextPlayerName = players[nextSpeakerIndex]['name'];
+      logsCopy.add('نوبت صحبت بازیکن: $nextPlayerName');
+      
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await FirebaseManager.updateGame(lobbyCode, {
+        'activeDiscussionPlayerIndex': nextSpeakerIndex,
+        'discussionEndTime': now + duration * 1000,
+        'logs': logsCopy,
+      });
+    } else {
+      logsCopy.add('پایان نوبت‌های صحبت. شروع دور قانون‌گذاری.');
+      
+      await FirebaseManager.updateGame(lobbyCode, {
+        'activeDiscussionPlayerIndex': -1,
+        'discussionEndTime': 0,
+        'logs': logsCopy,
+      });
+      
+      await _drawPoliciesForLegislative(logsCopy);
     }
   }
 
