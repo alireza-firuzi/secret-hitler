@@ -4,6 +4,7 @@ import '../logic/online_game_engine.dart';
 import '../logic/sound_manager.dart';
 import '../models/game_state.dart';
 import '../widgets/board_widgets.dart';
+import 'lie_detector_screen.dart';
 
 class OnlineGameBoardScreen extends StatefulWidget {
   final OnlineGameEngine engine;
@@ -479,6 +480,17 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
             ),
             centerTitle: true,
             actions: [
+              if (widget.engine.phaseStr != 'roleReveal')
+                IconButton(
+                  icon: const Icon(Icons.fingerprint, color: Colors.cyan),
+                  tooltip: 'دستگاه دروغ‌سنج',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LieDetectorScreen()),
+                    );
+                  },
+                ),
               if (widget.engine.isHost && widget.engine.phaseStr != 'roleReveal')
                 IconButton(
                   icon: const Icon(Icons.settings, color: Color(0xFFD4AF37)),
