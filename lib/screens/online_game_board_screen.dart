@@ -1867,91 +1867,161 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
         ),
       ),
       builder: (context) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'هویت محرمانه',
-                    style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _translateRole(role),
-                    style: TextStyle(
-                      color: isLib ? const Color(0xFF75B2FF) : const Color(0xFFFF847C),
-                      fontFamily: 'serif',
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
+        bool isRevealed = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return SafeArea(
+              child: GestureDetector(
+                onPanDown: (_) {
+                  setState(() { isRevealed = true; });
+                },
+                onPanEnd: (_) => setState(() { isRevealed = false; }),
+                onPanCancel: () => setState(() { isRevealed = false; }),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        return ScaleTransition(
+                          scale: animation,
+                          child: FadeTransition(opacity: animation, child: child),
+                        );
+                      },
+                      child: !isRevealed
+                          ? _buildBlurredRoleCover(isLib)
+                          : Column(
+                              key: const ValueKey('revealed_role'),
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'هویت محرمانه',
+                                  style: TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _translateRole(role),
+                                  style: TextStyle(
+                                    color: isLib ? const Color(0xFF75B2FF) : const Color(0xFFFF847C),
+                                    fontFamily: 'serif',
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'حزب مربوطه: ${_translateRole(party)}',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 16),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.asset(
+                                    isLib
+                                        ? 'assets/images/liberal_role.png'
+                                        : (role == 'Secret Hitler' ? 'assets/images/hitler_role.png' : 'assets/images/fascist_role.png'),
+                                    height: 110,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  isLib
+                                      ? 'هدف: تصویب ۵ سیاست لیبرال یا ترور هیتلر مخفی. با بقیه لیبرال‌ها همکاری کنید.'
+                                      : 'هدف: تصویب ۶ سیاست فاشیستی یا انتخاب هیتلر مخفی به عنوان صدراعظم پس از تصویب ۳ سیاست فاشیستی.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                                ),
+                                if (info.isNotEmpty) ...[
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black26,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.white10),
+                                    ),
+                                    child: Text(
+                                      info,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Color(0xFFFFD700), fontSize: 11, fontWeight: FontWeight.bold, height: 1.4),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 20),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white12,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(double.infinity, 44),
+                                  ),
+                                  child: const Text('بستن نمای خصوصی'),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'حزب مربوطه: ${_translateRole(party)}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
-                      isLib
-                          ? 'assets/images/liberal_role.png'
-                          : (role == 'Secret Hitler' ? 'assets/images/hitler_role.png' : 'assets/images/fascist_role.png'),
-                      height: 110,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    isLib
-                        ? 'هدف: تصویب ۵ سیاست لیبرال یا ترور هیتلر مخفی. با بقیه لیبرال‌ها همکاری کنید.'
-                        : 'هدف: تصویب ۶ سیاست فاشیستی یا انتخاب هیتلر مخفی به عنوان صدراعظم پس از تصویب ۳ سیاست فاشیستی.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
-                  ),
-                  if (info.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white10),
-                      ),
-                      child: Text(
-                        info,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Color(0xFFFFD700), fontSize: 11, fontWeight: FontWeight.bold, height: 1.4),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white12,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 44),
-                    ),
-                    child: const Text('بستن نمای خصوصی'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildBlurredRoleCover(bool isLib) {
+    return Column(
+      key: const ValueKey('blurred_role'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(height: 40),
+        const Icon(Icons.lock_outline, size: 64, color: Colors.white54),
+        const SizedBox(height: 24),
+        const Text(
+          'محرمانه',
+          style: TextStyle(
+            fontFamily: 'serif',
+            fontSize: 28,
+            color: Colors.white70,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 4,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.0),
+          child: Text(
+            'برای مشاهده هویت مخفی خود، انگشتتان را روی این صفحه نگه دارید. این قابلیت از دیده شدن نقش شما توسط دیگران جلوگیری می‌کند.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+          ),
+        ),
+        const SizedBox(height: 40),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white12,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 44),
+          ),
+          child: const Text('بستن نمای خصوصی'),
+        ),
+      ],
     );
   }
 

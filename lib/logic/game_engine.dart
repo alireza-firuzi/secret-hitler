@@ -99,7 +99,6 @@ class GameEngine extends ChangeNotifier {
 
   // Start a new game
   void startGame(List<String> names) {
-    SoundManager.play(SoundEvent.shuffle);
     if (names.length < 5 || names.length > 10) {
       throw ArgumentError('Game requires between 5 and 10 players.');
     }
@@ -464,7 +463,6 @@ class GameEngine extends ChangeNotifier {
     // Top 3 policies of the deck (last 3 in the array)
     _drawnPolicies = _deck.sublist(_deck.length - 3).reversed.toList();
     log('President ${currentPresident.name} peeked at the top 3 cards in the policy deck.');
-    SoundManager.play(SoundEvent.policyPeek);
     notifyListeners();
   }
 

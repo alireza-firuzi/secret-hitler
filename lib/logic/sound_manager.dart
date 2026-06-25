@@ -2,8 +2,6 @@ import 'package:audioplayers/audioplayers.dart';
 
 enum SoundEvent {
   alarm,
-  chancellorReceivesPolicies,
-  clockTick,
   enactPolicy,
   fascistsWin,
   fascistsWinHitlerElected,
@@ -11,10 +9,8 @@ enum SoundEvent {
   liberalsWinHitlerShow,
   playerShot,
   policyInvestigate,
-  policyPeek,
   policySpecialElection,
   presidentReceivesPolicies,
-  shuffle,
   vetoFails,
   vetoSucceeds,
 }
@@ -106,10 +102,6 @@ class SoundManager {
     switch (event) {
       case SoundEvent.alarm:
         return 'alarm.mp3';
-      case SoundEvent.chancellorReceivesPolicies:
-        return 'chancellorreceivespolicies.mp3';
-      case SoundEvent.clockTick:
-        return 'clockTick.mp3';
       case SoundEvent.enactPolicy:
         return 'enactpolicy.mp3';
       case SoundEvent.fascistsWin:
@@ -124,14 +116,10 @@ class SoundManager {
         return 'playershot.mp3';
       case SoundEvent.policyInvestigate:
         return 'policyinvestigate.mp3';
-      case SoundEvent.policyPeek:
-        return 'policypeek.mp3';
       case SoundEvent.policySpecialElection:
         return 'policyspecialelection.mp3';
       case SoundEvent.presidentReceivesPolicies:
         return 'presidentreceivespolicies.mp3';
-      case SoundEvent.shuffle:
-        return 'shuffle.mp3';
       case SoundEvent.vetoFails:
         return 'vetofails.mp3';
       case SoundEvent.vetoSucceeds:

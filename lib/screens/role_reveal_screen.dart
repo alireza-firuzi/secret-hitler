@@ -82,37 +82,30 @@ class RoleRevealScreen extends StatelessWidget {
                 const Spacer(),
   
                 // Action button
-                ElevatedButton(
-                  onPressed: () {
-                    if (isRevealed) {
+                if (isRevealed)
+                  ElevatedButton(
+                    onPressed: () {
                       engine.confirmAndNextRole();
-                    } else {
-                      engine.toggleRevealRole();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isRevealed
-                        ? const Color(0xFF2E2A27)
-                        : const Color(0xFF9E2A2B),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(double.infinity, 52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: isRevealed
-                          ? const BorderSide(color: Colors.white24)
-                          : BorderSide.none,
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E2A27),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.white24),
+                      ),
+                      elevation: 8,
                     ),
-                    elevation: 8,
-                  ),
-                  child: Text(
-                    isRevealed ? 'CONFIRM & HIDE' : 'OPEN ENVELOPE',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
+                    child: const Text(
+                      'CONFIRM & NEXT',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 12),
               ],
             ),
@@ -144,8 +137,20 @@ class RoleRevealScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GestureDetector(
-            onTap: () {
-              engine.toggleRevealRole();
+            onPanDown: (_) {
+              if (!engine.roleCardRevealed) {
+                engine.toggleRevealRole();
+              }
+            },
+            onPanEnd: (_) {
+              if (engine.roleCardRevealed) {
+                engine.toggleRevealRole();
+              }
+            },
+            onPanCancel: () {
+              if (engine.roleCardRevealed) {
+                engine.toggleRevealRole();
+              }
             },
             child: _buildWaxSeal(),
           ),
@@ -182,7 +187,7 @@ class RoleRevealScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Text(
-              'Click the wax seal to break open your secret file.',
+              'Hold the wax seal to break open your secret file. Release to hide.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.4),

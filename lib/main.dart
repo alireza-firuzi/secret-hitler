@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'logic/firebase_manager.dart';
 import 'logic/game_engine.dart';
 import 'logic/online_game_engine.dart';
@@ -34,7 +35,9 @@ class SecretHitlerApp extends StatelessWidget {
           surface: Color(0xFF2C2523),
           background: Color(0xFF1B1816),
         ),
-        fontFamily: 'serif',
+        textTheme: GoogleFonts.vazirmatnTextTheme(
+          Theme.of(context).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+        ),
         useMaterial3: true,
       ),
       builder: (context, child) {

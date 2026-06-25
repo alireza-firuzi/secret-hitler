@@ -48,7 +48,6 @@ class OnlineGameEngine extends ChangeNotifier {
         // Trigger sounds based on state diffs
         if (status == 'playing') {
           if (previousStatus == 'lobby') {
-            SoundManager.play(SoundEvent.shuffle);
           } else {
             // Check changes during play
             final currentPhase = phaseStr;
@@ -63,7 +62,6 @@ class OnlineGameEngine extends ChangeNotifier {
             // 1. Check phase transition sounds
             if (currentPhase != previousPhase) {
               if (currentPhase == 'roleReveal' || currentPhase == 'electionNomination') {
-                SoundManager.play(SoundEvent.shuffle);
               } else if (currentPhase == 'gameOver') {
                 if (winner == 'Liberals') {
                   if (winReason != null && winReason!.contains('executed')) {
@@ -469,10 +467,6 @@ class OnlineGameEngine extends ChangeNotifier {
     } else {
       logsCopy.add('پایان نوبت‌های صحبت.');
       
-      final nextPhase = _gameData['discussionNextPhase'] ?? 'electionNomination';
-      final nextPower = _gameData['discussionNextPower'] ?? 'none';
-      final isChaos = _gameData['discussionIsChaos'] ?? false;
-
       final Map<String, dynamic> updates = {
         'players': updatedPlayers,
         'activeDiscussionPlayerIndex': -1,
@@ -480,23 +474,14 @@ class OnlineGameEngine extends ChangeNotifier {
         'logs': logsCopy,
       };
 
-      if (nextPhase == 'executiveAction') {
-        updates['phase'] = 'executiveAction';
-        updates['activePower'] = nextPower;
-        updates['investigatedParty'] = null;
-        updates['investigatedPlayerIndex'] = -1;
-        updates['drawnPolicies'] = [];
-        await FirebaseManager.updateGame(lobbyCode, updates);
-      } else {
-        await FirebaseManager.updateGame(lobbyCode, updates);
-        await _rotatePresident(
-          logsCopy,
-          failedElection: false,
-          nextTracker: 0,
-          isChaos: isChaos,
-          newPlayersList: updatedPlayers,
-        );
-      }
+      await FirebaseManager.updateGame(lobbyCode, updates);
+      await _rotatePresident(
+        logsCopy,
+        failedElection: false,
+        nextTracker: 0,
+        isChaos: _gameData['discussionIsChaos'] ?? false,
+        newPlayersList: updatedPlayers,
+      );
     }
   }
 
@@ -629,64 +614,29 @@ class OnlineGameEngine extends ChangeNotifier {
       }
     }
 
-    final duration = discussionDuration;
-    if (duration > 0) {
-      int firstSpeakerIndex = -1;
-      for (int i = 0; i < players.length; i++) {
-        if (players[i]['isAlive'] == true) {
-          firstSpeakerIndex = i;
-          break;
-        }
-      }
-
-      if (firstSpeakerIndex != -1) {
-        final speakerName = players[firstSpeakerIndex]['name'];
-        currentLogs.add('نوبت صحبت بازیکن: $speakerName');
-
-        String power = 'none';
-        if (policy != 'liberal' && !isChaos) {
-          power = _getPowerForFascistSlot(newFas, players.length);
-        }
-
-        await FirebaseManager.updateGame(lobbyCode, {
-          'fascistPolicies': newFas,
-          'liberalPolicies': newLib,
-          'deck': finalDeck,
-          'discardPile': finalDiscard,
-          'phase': 'discussion',
-          'activeDiscussionPlayerIndex': firstSpeakerIndex,
-          'discussionEndTime': 0,
-          'discussionNextPhase': power != 'none' ? 'executiveAction' : 'electionNomination',
-          'discussionNextPower': power,
-          'discussionIsChaos': isChaos,
-          'logs': currentLogs,
-        });
-        return;
-      }
-    }
-
-    // Check if presidential power triggers (only for regular enactments)
+    String power = 'none';
     if (policy != 'liberal' && !isChaos) {
-      final power = _getPowerForFascistSlot(newFas, players.length);
-      if (power != 'none') {
-        currentLogs.add('اقدام رئیس‌جمهوری باز شد: $power.');
-        await FirebaseManager.updateGame(lobbyCode, {
-          'fascistPolicies': newFas,
-          'deck': finalDeck,
-          'discardPile': finalDiscard,
-          'drawnPolicies': [],
-          'phase': 'executiveAction',
-          'activePower': power,
-          'investigatedParty': null,
-          'investigatedPlayerIndex': -1,
-          'logs': currentLogs,
-        });
-        return;
-      }
+      power = _getPowerForFascistSlot(newFas, players.length);
     }
 
-    // Normal round wrap-up
-    await _rotatePresident(
+    if (power != 'none') {
+      currentLogs.add('اقدام رئیس‌جمهوری باز شد: $power.');
+      await FirebaseManager.updateGame(lobbyCode, {
+        'fascistPolicies': newFas,
+        'liberalPolicies': newLib,
+        'deck': finalDeck,
+        'discardPile': finalDiscard,
+        'drawnPolicies': [],
+        'phase': 'executiveAction',
+        'activePower': power,
+        'investigatedParty': null,
+        'investigatedPlayerIndex': -1,
+        'logs': currentLogs,
+      });
+      return;
+    }
+
+    await _startDiscussionOrRotatePresident(
       currentLogs,
       failedElection: false,
       nextTracker: 0,
@@ -750,8 +700,8 @@ class OnlineGameEngine extends ChangeNotifier {
       'investigatedParty': null,
       'investigatedPlayerIndex': -1,
     });
-    // Rotate president
-    await _rotatePresident(List<String>.from(logs), failedElection: false, nextTracker: 0);
+    // Check discussion
+    await _startDiscussionOrRotatePresident(List<String>.from(logs), failedElection: false, nextTracker: 0);
   }
 
   Future<void> executePolicyPeek() async {
@@ -781,7 +731,7 @@ class OnlineGameEngine extends ChangeNotifier {
       'activePower': 'none',
       'drawnPolicies': [],
     });
-    await _rotatePresident(List<String>.from(logs), failedElection: false, nextTracker: 0);
+    await _startDiscussionOrRotatePresident(List<String>.from(logs), failedElection: false, nextTracker: 0);
   }
 
   Future<void> executeCallSpecialElection(int targetIndex) async {
@@ -798,7 +748,7 @@ class OnlineGameEngine extends ChangeNotifier {
       'activePower': 'none',
     });
 
-    await _rotatePresident(logsCopy, failedElection: false, nextTracker: 0);
+    await _startDiscussionOrRotatePresident(logsCopy, failedElection: false, nextTracker: 0);
   }
 
   Future<void> executeExecution(int targetIndex) async {
@@ -826,7 +776,7 @@ class OnlineGameEngine extends ChangeNotifier {
         'logs': logsCopy,
       });
     } else {
-      await _rotatePresident(logsCopy, failedElection: false, nextTracker: 0, newPlayersList: playersCopy);
+      await _startDiscussionOrRotatePresident(logsCopy, failedElection: false, nextTracker: 0, newPlayersList: playersCopy);
     }
   }
 
@@ -904,6 +854,67 @@ class OnlineGameEngine extends ChangeNotifier {
     if (newDiscard != null) updates['discardPile'] = newDiscard;
 
     await FirebaseManager.updateGame(lobbyCode, updates);
+  }
+
+  Future<void> _startDiscussionOrRotatePresident(
+    List<String> currentLogs, {
+    required bool failedElection,
+    required int nextTracker,
+    int? newFas,
+    int? newLib,
+    List<dynamic>? newDiscard,
+    List<dynamic>? newPlayersList,
+    List<dynamic>? newDeck,
+    bool isChaos = false,
+  }) async {
+    final duration = discussionDuration;
+    if (duration > 0) {
+      int firstSpeakerIndex = -1;
+      final activePlayersList = newPlayersList ?? players;
+      for (int i = 0; i < activePlayersList.length; i++) {
+        if (activePlayersList[i]['isAlive'] == true) {
+          firstSpeakerIndex = i;
+          break;
+        }
+      }
+
+      if (firstSpeakerIndex != -1) {
+        final speakerName = activePlayersList[firstSpeakerIndex]['name'];
+        currentLogs.add('نوبت صحبت بازیکن: $speakerName');
+
+        final Map<String, dynamic> updates = {
+          'phase': 'discussion',
+          'activeDiscussionPlayerIndex': firstSpeakerIndex,
+          'discussionEndTime': 0,
+          'discussionNextPhase': 'electionNomination',
+          'discussionNextPower': 'none',
+          'discussionIsChaos': isChaos,
+          'logs': currentLogs,
+        };
+
+        if (newPlayersList != null) updates['players'] = newPlayersList;
+        if (newDeck != null) updates['deck'] = newDeck;
+        if (newFas != null) updates['fascistPolicies'] = newFas;
+        if (newLib != null) updates['liberalPolicies'] = newLib;
+        if (newDiscard != null) updates['discardPile'] = newDiscard;
+
+        await FirebaseManager.updateGame(lobbyCode, updates);
+        return;
+      }
+    }
+
+    // Fallback to rotate president
+    await _rotatePresident(
+      currentLogs,
+      failedElection: failedElection,
+      nextTracker: nextTracker,
+      newFas: newFas,
+      newLib: newLib,
+      newDiscard: newDiscard,
+      newPlayersList: newPlayersList,
+      newDeck: newDeck,
+      isChaos: isChaos,
+    );
   }
 
   // Helpers
