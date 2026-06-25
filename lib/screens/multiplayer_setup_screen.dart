@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../logic/firebase_manager.dart';
+import 'tutorial_screen.dart';
 
 class MultiplayerSetupScreen extends StatefulWidget {
   final Function(String lobbyCode, String playerName, String playerId) onEnterLobby;
@@ -323,6 +324,43 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
               // Dark overlay to focus on the center card
               Container(
                 color: Colors.black.withOpacity(0.55),
+              ),
+              Positioned(
+                top: 50,
+                left: 20,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TutorialScreen()),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xE6251E1C),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'آموزش بازی',
+                          style: TextStyle(
+                            color: Color(0xFFE6DFD3),
+                            fontFamily: 'serif',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
               Center(
                 child: SingleChildScrollView(
