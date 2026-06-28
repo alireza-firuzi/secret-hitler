@@ -4,9 +4,70 @@ const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
 const PORT = process.env.PORT || 3000;
 
+// Memory store for active OTP codes (expires in 5 minutes)
+const activeOtps = new Map();
+
 // Create HTTP Server
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+  // Handle OTP Send
+  if (urlObj.pathname === '/api/otp/send') {
+    const phone = urlObj.searchParams.get('phone');
+    if (!phone) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'Phone number is required' }));
+      return;
+    }
+
+    // Generate 6-digit code (simulated)
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    activeOtps.set(phone, { code, expires: Date.now() + 5 * 60 * 1000 });
+
+    console.log(`[OTP] Generated code ${code} for phone number ${phone}`);
+
+    // If integrating Kavenegar/FarazSMS, trigger the SMS sending API call here
+
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({ success: true, message: 'OTP sent successfully', codeForDev: code }));
+    return;
+  }
+
+  // Handle OTP Verification
+  if (urlObj.pathname === '/api/otp/verify') {
+    const phone = urlObj.searchParams.get('phone');
+    const code = urlObj.searchParams.get('code');
+    if (!phone || !code) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'Phone number and code are required' }));
+      return;
+    }
+
+    const record = activeOtps.get(phone);
+    if (!record) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'No active OTP session found' }));
+      return;
+    }
+
+    if (Date.now() > record.expires) {
+      activeOtps.delete(phone);
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'OTP code has expired' }));
+      return;
+    }
+
+    if (record.code === code) {
+      activeOtps.delete(phone);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ success: true }));
+      return;
+    } else {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: 'Invalid OTP code' }));
+      return;
+    }
+  }
 
   if (urlObj.pathname === '/api/tts') {
     const text = urlObj.searchParams.get('text');

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
 
 class FirebaseManager {
   static bool _firebaseInitialized = false;
@@ -33,6 +34,17 @@ class FirebaseManager {
     print("Cleared active subscription, reconnect loop terminated.");
   }
 
+  static String get httpBaseUrl {
+    if (kIsWeb) {
+      final uri = Uri.base;
+      final protocol = uri.scheme == 'https' ? 'https' : 'http';
+      if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
+        return '$protocol://${uri.host}/secret-hitler/api';
+      }
+    }
+    return 'http://localhost:3000/api';
+  }
+
   static String get _wsUrl {
     if (kIsWeb) {
       final uri = Uri.base;
@@ -43,6 +55,32 @@ class FirebaseManager {
       }
     }
     return 'ws://localhost:3000';
+  }
+
+  // Send OTP SMS request to server
+  static Future<String?> sendOtp(String phone) async {
+    try {
+      final response = await http.get(Uri.parse('$httpBaseUrl/otp/send?phone=$phone'));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return body['codeForDev']; // Returns code in dev-mode to display in UI for convenience
+      } else {
+        final body = jsonDecode(response.body);
+        return body['error'] ?? 'خطا در ارسال کد یکبار مصرف';
+      }
+    } catch (e) {
+      return 'خطا در اتصال به سرور جهت ارسال کد';
+    }
+  }
+
+  // Verify OTP SMS code request on server
+  static Future<bool> verifyOtp(String phone, String code) async {
+    try {
+      final response = await http.get(Uri.parse('$httpBaseUrl/otp/verify?phone=$phone&code=$code'));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> initialize() async {

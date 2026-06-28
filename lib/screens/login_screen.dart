@@ -245,7 +245,174 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handlePhoneLogin() async {
+    final phoneController = TextEditingController();
+    
+    // 1. Show Phone Number Dialog
+    final phone = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF1C1917),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.white10),
+            ),
+            title: const Text('ورود با شماره موبایل', style: TextStyle(color: Colors.white, fontSize: 16)),
+            content: TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'مثال: 09123456789',
+                hintStyle: TextStyle(color: Colors.white24),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('انصراف', style: TextStyle(color: Colors.white54)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+                onPressed: () {
+                  final txt = phoneController.text.trim();
+                  if (txt.isNotEmpty) {
+                    Navigator.pop(context, txt);
+                  }
+                },
+                child: const Text('ارسال کد', style: TextStyle(color: Colors.black)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
+    if (phone == null || phone.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final devCode = await FirebaseManager.sendOtp(phone);
+    
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (devCode == null) {
+      _showError('خطا در ارسال کد به شماره موبایل شما.');
+      return;
+    }
+
+    final codeController = TextEditingController();
+    
+    // 2. Show Verification Code Dialog
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF1C1917),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.white10),
+            ),
+            title: const Text('کد تایید پیامک شد', style: TextStyle(color: Colors.white, fontSize: 16)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'کد به شماره $phone ارسال شد.',
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'کد تایید (تست): $devCode',
+                  style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: codeController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 6),
+                  decoration: const InputDecoration(
+                    hintText: '******',
+                    hintStyle: TextStyle(color: Colors.white24),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('انصراف', style: TextStyle(color: Colors.white54)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+                onPressed: () {
+                  final code = codeController.text.trim();
+                  if (code.length == 6) {
+                    Navigator.pop(context, true);
+                  }
+                },
+                child: const Text('تایید و ورود', style: TextStyle(color: Colors.black)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (verified != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final success = await FirebaseManager.verifyOtp(phone, codeController.text.trim());
+    if (success) {
+      final rand = Random();
+      final uid = 'otp_${phone.replaceAll('+', '')}';
+      final defaultAvatar = 'avatar_${rand.nextInt(12) + 1}';
+      
+      final profile = await FirebaseManager.loginUser(
+        uid: uid,
+        displayName: 'موبایل ${phone.substring(max(0, phone.length - 4))}',
+        photoUrl: defaultAvatar,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      if (profile != null) {
+        widget.onLoginSuccess();
+      } else {
+        _showError('خطا در ثبت پروفایل در دیتابیس.');
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      _showError('کد وارد شده صحیح نیست یا منقضی شده است.');
+    }
+  }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -336,6 +503,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               icon: Icons.g_mobiledata,
                               color: const Color(0xFFDB4437),
                               onPressed: _handleGoogleLogin,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildSocialButton(
+                              label: 'ورود با شماره موبایل (OTP)',
+                              icon: Icons.phone_android,
+                              color: const Color(0xFF2E7D32),
+                              onPressed: _handlePhoneLogin,
                             ),
                             const SizedBox(height: 16),
                             // Guest Login Button
