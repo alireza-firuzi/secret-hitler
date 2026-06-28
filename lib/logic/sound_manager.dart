@@ -26,18 +26,26 @@ class SoundManager {
   static bool get isMuted => _muted;
 
   static AudioPlayer? _loopPlayer;
-  static AudioPlayer? _currentPlayer;
+  static AudioPlayer? _soundPlayer;
+  static AudioPlayer? _speechPlayer;
 
   static void setMuted(bool muted) {
     _muted = muted;
     if (muted) {
       stopLoop();
-      if (_currentPlayer != null) {
+      if (_soundPlayer != null) {
         try {
-          _currentPlayer!.stop();
-          _currentPlayer!.dispose();
+          _soundPlayer!.stop();
+          _soundPlayer!.dispose();
         } catch (_) {}
-        _currentPlayer = null;
+        _soundPlayer = null;
+      }
+      if (_speechPlayer != null) {
+        try {
+          _speechPlayer!.stop();
+          _speechPlayer!.dispose();
+        } catch (_) {}
+        _speechPlayer = null;
       }
     }
   }
@@ -46,24 +54,24 @@ class SoundManager {
     if (_muted) return;
 
     try {
-      if (_currentPlayer != null) {
+      if (_soundPlayer != null) {
         try {
-          await _currentPlayer!.stop();
-          await _currentPlayer!.dispose();
+          await _soundPlayer!.stop();
+          await _soundPlayer!.dispose();
         } catch (_) {}
-        _currentPlayer = null;
+        _soundPlayer = null;
       }
 
       final player = AudioPlayer();
-      _currentPlayer = player;
+      _soundPlayer = player;
       final String fileName = _getFileName(event);
       // AssetSource assumes assets/ as default prefix
       await player.play(AssetSource('sounds/$fileName'));
       
       // Auto dispose player after playback completes to free resources
       player.onPlayerComplete.listen((_) {
-        if (_currentPlayer == player) {
-          _currentPlayer = null;
+        if (_soundPlayer == player) {
+          _soundPlayer = null;
         }
         try {
           player.dispose();
@@ -94,21 +102,21 @@ class SoundManager {
       final String encodedText = Uri.encodeComponent(text);
       final String url = '$protocol://$serverHost$apiPath?text=$encodedText';
 
-      if (_currentPlayer != null) {
+      if (_speechPlayer != null) {
         try {
-          await _currentPlayer!.stop();
-          await _currentPlayer!.dispose();
+          await _speechPlayer!.stop();
+          await _speechPlayer!.dispose();
         } catch (_) {}
-        _currentPlayer = null;
+        _speechPlayer = null;
       }
 
       final player = AudioPlayer();
-      _currentPlayer = player;
+      _speechPlayer = player;
       await player.play(UrlSource(url));
 
       player.onPlayerComplete.listen((_) {
-        if (_currentPlayer == player) {
-          _currentPlayer = null;
+        if (_speechPlayer == player) {
+          _speechPlayer = null;
         }
         try {
           player.dispose();
