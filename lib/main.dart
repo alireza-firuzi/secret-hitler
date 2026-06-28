@@ -18,10 +18,15 @@ import 'screens/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    print("Firebase Core initialized successfully with config.");
+    final options = DefaultFirebaseOptions.currentPlatform;
+    if (options.apiKey == 'YOUR_API_KEY' || options.apiKey.isEmpty) {
+      print("Firebase options are not configured. Sign-ins will fallback to mock-mode.");
+    } else {
+      await Firebase.initializeApp(
+        options: options,
+      );
+      print("Firebase Core initialized successfully with config.");
+    }
   } catch (e) {
     print("Firebase Core initialization warning: $e");
   }
