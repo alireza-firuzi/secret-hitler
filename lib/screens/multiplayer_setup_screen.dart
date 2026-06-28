@@ -114,6 +114,19 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
 
       final String playerId = FirebaseManager.currentUserProfile?['uid'] ?? 'user_${RandomString.generate(6)}';
 
+      // Update guest profile in DB if guest, so the name and avatar updates on the server/leaderboard too!
+      if (playerId.startsWith('guest_')) {
+        await FirebaseManager.updateProfile(
+          uid: playerId,
+          displayName: name,
+          photoUrl: selectedAvatar,
+        );
+        if (FirebaseManager.currentUserProfile != null) {
+          FirebaseManager.currentUserProfile!['displayName'] = name;
+          FirebaseManager.currentUserProfile!['photoUrl'] = selectedAvatar;
+        }
+      }
+
       if (_isCreating) {
         final lobbyCode = await FirebaseManager.createGame(
           hostName: name,
@@ -337,56 +350,58 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                 left: 20,
                 child: Row(
                   children: [
-                    // Profile button
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                        ).then((_) {
-                          // Update UI in case username or avatar changed
-                          if (mounted) {
-                            setState(() {
-                              if (FirebaseManager.currentUserProfile != null) {
-                                _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
-                              }
-                            });
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xE6251E1C),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 10,
-                              backgroundColor: const Color(0xFF151211),
-                              backgroundImage: AssetImage(
-                                'assets/images/${FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1'}.png',
+                    // Profile button (only for registered users, guests do not have a profile)
+                    if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                          ).then((_) {
+                            // Update UI in case username or avatar changed
+                            if (mounted) {
+                              setState(() {
+                                if (FirebaseManager.currentUserProfile != null) {
+                                  _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
+                                }
+                              });
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xE6251E1C),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor: const Color(0xFF151211),
+                                backgroundImage: AssetImage(
+                                  'assets/images/${FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1'}.png',
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'پروفایل من',
-                              style: TextStyle(
-                                color: Color(0xFFE6DFD3),
-                                fontFamily: 'serif',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                              const SizedBox(width: 6),
+                              const Text(
+                                'پروفایل من',
+                                style: TextStyle(
+                                  color: Color(0xFFE6DFD3),
+                                  fontFamily: 'serif',
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                    ],
                     // Leaderboard button
                     InkWell(
                       onTap: () {

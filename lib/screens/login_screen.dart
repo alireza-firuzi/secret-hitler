@@ -340,25 +340,48 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 16),
                             // Guest Login Button
                             TextButton.icon(
-                              onPressed: () {
+                              onPressed: () async {
                                 final rand = Random();
                                 final guestId = 'guest_${rand.nextInt(900000) + 100000}';
-                                FirebaseManager.currentUserProfile = {
-                                  'uid': guestId,
-                                  'displayName': 'کاربر مهمان',
-                                  'photoUrl': 'avatar_${rand.nextInt(12) + 1}',
-                                  'stats': {
-                                    'gamesPlayed': 0,
-                                    'wins': 0,
-                                    'losses': 0,
-                                    'roles': {'Liberal': 0, 'Fascist': 0, 'Secret Hitler': 0}
-                                  }
-                                };
-                                widget.onLoginSuccess();
+                                final defaultAvatar = 'avatar_${rand.nextInt(12) + 1}';
+                                
+                                setState(() {
+                                  _isLoading = true;
+                                });
+                                
+                                final profile = await FirebaseManager.loginUser(
+                                  uid: guestId,
+                                  displayName: 'کاربر مهمان',
+                                  photoUrl: defaultAvatar,
+                                );
+                                
+                                if (mounted) {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
+                                
+                                if (profile != null) {
+                                  widget.onLoginSuccess();
+                                } else {
+                                  // Fallback to local profile if server connection failed/timed out
+                                  FirebaseManager.currentUserProfile = {
+                                    'uid': guestId,
+                                    'displayName': 'کاربر مهمان',
+                                    'photoUrl': defaultAvatar,
+                                    'stats': {
+                                      'gamesPlayed': 0,
+                                      'wins': 0,
+                                      'losses': 0,
+                                      'roles': {'Liberal': 0, 'Fascist': 0, 'Secret Hitler': 0}
+                                    }
+                                  };
+                                  widget.onLoginSuccess();
+                                }
                               },
                               icon: const Icon(Icons.person_outline, color: Colors.white54),
                               label: const Text(
-                                'ورود به عنوان مهمان (بدون ثبت آمار)',
+                                'ورود به عنوان مهمان',
                                 style: TextStyle(color: Colors.white54, fontSize: 13),
                               ),
                             ),
