@@ -52,6 +52,33 @@ function sendIppanelSms(phone, code) {
   });
 }
 
+function validateUsername(username) {
+  if (!username || typeof username !== 'string') {
+    return { valid: false, error: 'نام کاربری نامعتبر است' };
+  }
+  const trimmed = username.trim();
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'نام کاربری باید حداقل ۳ کاراکتر باشد' };
+  }
+  if (trimmed.length > 20) {
+    return { valid: false, error: 'نام کاربری حداکثر می‌تواند ۲۰ کاراکتر باشد' };
+  }
+  
+  // Regex for Persian letters, spaces, and numbers (both English and Persian digits)
+  const allowedChars = /^[\u0600-\u06FF\u200C\s0-9]+$/;
+  if (!allowedChars.test(trimmed)) {
+    return { valid: false, error: 'نام کاربری فقط می‌تواند شامل حروف فارسی و عدد باشد' };
+  }
+  
+  // Must contain at least one Persian letter (not just numbers/spaces)
+  const letterRegex = /[\u0622-\u0628\u062A-\u063A\u0641-\u0642\u0644-\u0648\u067E\u0686\u0698\u06A9\u06AF\u06CC]/;
+  if (!letterRegex.test(trimmed)) {
+    return { valid: false, error: 'نام کاربری باید شامل حروف فارسی باشد' };
+  }
+  
+  return { valid: true, trimmed };
+}
+
 const PORT = process.env.PORT || 3000;
 
 // Memory store for active OTP codes (expires in 5 minutes)
@@ -812,11 +839,13 @@ wss.on('connection', (ws) => {
           }
           let user = await usersCollection.findOne({ uid });
           if (!user) {
+            const isGuest = uid.startsWith('guest_');
             user = {
               uid,
               displayName,
               email: email || '',
               photoUrl: photoUrl || 'avatar_1',
+              needsUsername: !isGuest,
               stats: {
                 gamesPlayed: 0,
                 wins: 0,
@@ -829,6 +858,63 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({
             type: 'userProfile',
             data: user
+          }));
+          break;
+        }
+
+        case 'setUsername': {
+          const { uid, username } = payload;
+          if (!usersCollection) {
+            ws.send(JSON.stringify({
+              type: 'setUsernameResult',
+              success: false,
+              error: 'دیتابیس در دسترس نیست'
+            }));
+            break;
+          }
+          
+          const validation = validateUsername(username);
+          if (!validation.valid) {
+            ws.send(JSON.stringify({
+              type: 'setUsernameResult',
+              success: false,
+              error: validation.error
+            }));
+            break;
+          }
+          
+          const cleanUsername = validation.trimmed;
+
+          // Case-insensitive duplicate check in MongoDB
+          const existingUser = await usersCollection.findOne({ 
+            displayName: { $regex: new RegExp(`^${cleanUsername.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } 
+          });
+          
+          if (existingUser && existingUser.uid !== uid) {
+            ws.send(JSON.stringify({
+              type: 'setUsernameResult',
+              success: false,
+              error: 'این نام کاربری قبلاً انتخاب شده است'
+            }));
+            break;
+          }
+
+          await usersCollection.updateOne(
+            { uid },
+            { $set: { displayName: cleanUsername, needsUsername: false } }
+          );
+
+          const updatedUser = await usersCollection.findOne({ uid });
+          
+          ws.send(JSON.stringify({
+            type: 'setUsernameResult',
+            success: true,
+            data: updatedUser
+          }));
+
+          ws.send(JSON.stringify({
+            type: 'userProfile',
+            data: updatedUser
           }));
           break;
         }

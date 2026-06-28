@@ -227,7 +227,10 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (profile != null) {
-          widget.onLoginSuccess();
+          final isUsernameOk = await _checkAndPromptUsername();
+          if (isUsernameOk) {
+            widget.onLoginSuccess();
+          }
         } else {
           _showError('خطا در ثبت پروفایل در دیتابیس سرور.');
         }
@@ -402,7 +405,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (profile != null) {
-        widget.onLoginSuccess();
+        final isUsernameOk = await _checkAndPromptUsername();
+        if (isUsernameOk) {
+          widget.onLoginSuccess();
+        }
       } else {
         _showError('خطا در ثبت پروفایل در دیتابیس.');
       }
@@ -412,6 +418,133 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       _showError('کد وارد شده صحیح نیست یا منقضی شده است.');
     }
+  }
+
+  Future<bool> _checkAndPromptUsername() async {
+    final profile = FirebaseManager.currentUserProfile;
+    if (profile == null) return false;
+    
+    if (profile['needsUsername'] != true) {
+      return true;
+    }
+    
+    final usernameController = TextEditingController();
+    String? errorMessage;
+    bool dialogLoading = false;
+    
+    final success = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                backgroundColor: const Color(0xFF1C1917),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Colors.white10),
+                ),
+                title: const Text(
+                  'انتخاب نام کاربری',
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    color: Color(0xFFD4AF37),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'برای اولین ورود، لطفاً نام کاربری خود را به زبان فارسی (یا فارسی به همراه عدد) انتخاب کنید. این نام کاربری نباید تکراری باشد.',
+                      style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'serif'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: usernameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'نام کاربری فارسی...',
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        errorText: errorMessage,
+                        errorMaxLines: 2,
+                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: dialogLoading ? null : () {
+                      FirebaseManager.currentUserProfile = null;
+                      Navigator.pop(context, false);
+                    },
+                    child: const Text('انصراف', style: TextStyle(color: Colors.white54)),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
+                    onPressed: dialogLoading ? null : () async {
+                      final input = usernameController.text.trim();
+                      if (input.isEmpty) {
+                        setDialogState(() {
+                          errorMessage = 'نام کاربری نمی‌تواند خالی باشد';
+                        });
+                        return;
+                      }
+                      
+                      setDialogState(() {
+                        dialogLoading = true;
+                        errorMessage = null;
+                      });
+                      
+                      try {
+                        final result = await FirebaseManager.setUsername(
+                          uid: profile['uid'],
+                          username: input,
+                        );
+                        
+                        if (result['success'] == true) {
+                          if (context.mounted) {
+                            Navigator.pop(context, true);
+                          }
+                        } else {
+                          if (context.mounted) {
+                            setDialogState(() {
+                              dialogLoading = false;
+                              errorMessage = result['error'] ?? 'خطا در ثبت نام کاربری';
+                            });
+                          }
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          setDialogState(() {
+                            dialogLoading = false;
+                            errorMessage = 'خطا در اتصال به سرور';
+                          });
+                        }
+                      }
+                    },
+                    child: dialogLoading 
+                      ? const SizedBox(
+                          width: 16, 
+                          height: 16, 
+                          child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                        )
+                      : const Text('ثبت و ورود', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    
+    return success == true;
   }
 
   void _showError(String message) {

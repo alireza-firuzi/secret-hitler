@@ -19,6 +19,7 @@ class FirebaseManager {
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
   static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
   static final Map<String, Completer<Map<String, dynamic>?>> _loginCompleters = {};
+  static final Map<String, Completer<Map<String, dynamic>>> _setUsernameCompleters = {};
   static Completer<List<dynamic>?>? _leaderboardCompleter;
   static Map<String, dynamic>? currentUserProfile;
 
@@ -138,6 +139,13 @@ class FirebaseManager {
               final completer = _loginCompleters.remove(key);
               if (completer != null && !completer.isCompleted) {
                 completer.complete(data);
+              }
+            } else if (type == 'setUsernameResult') {
+              final uid = payload['data']?['uid'] ?? payload['uid'] ?? '';
+              final key = 'username_$uid';
+              final completer = _setUsernameCompleters.remove(key);
+              if (completer != null && !completer.isCompleted) {
+                completer.complete(Map<String, dynamic>.from(payload));
               }
             } else if (type == 'leaderboard') {
               final list = payload['data'] as List<dynamic>?;
@@ -500,6 +508,37 @@ class FirebaseManager {
       if (!completer.isCompleted) {
         _loginCompleters.remove(key);
         completer.complete(null);
+      }
+    });
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
+  // Submit custom unique username
+  static Future<Map<String, dynamic>> setUsername({
+    required String uid,
+    required String username,
+  }) async {
+    final key = 'username_$uid';
+    final completer = Completer<Map<String, dynamic>>();
+    _setUsernameCompleters[key] = completer;
+
+    _channel!.sink.add(jsonEncode({
+      'action': 'setUsername',
+      'uid': uid,
+      'username': username,
+    }));
+
+    // 10s timeout
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        _setUsernameCompleters.remove(key);
+        completer.complete({
+          'success': false,
+          'error': 'زمان پاسخ‌دهی سرور به پایان رسید'
+        });
       }
     });
 
