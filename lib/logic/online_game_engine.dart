@@ -99,12 +99,12 @@ class OnlineGameEngine extends ChangeNotifier {
           _fetchPrivateRole();
         }
 
-        // Tally check: Host (if alive and connected) or current President (as fallback)
+        // Tally check: Host (if connected) or current President (as fallback)
         if (phaseStr == 'electionVoting' && votes.length >= alivePlayersCount) {
           final hostPlayer = players.firstWhere((p) => p['id'] == hostId, orElse: () => null);
-          final bool isHostActive = hostPlayer != null && hostPlayer['isAlive'] == true && hostPlayer['isDisconnected'] != true;
+          final bool isHostConnected = hostPlayer != null && hostPlayer['isDisconnected'] != true;
           
-          final bool shouldITally = isHostActive ? isHost : isMyTurnPresident;
+          final bool shouldITally = isHostConnected ? isHost : isMyTurnPresident;
           if (shouldITally) {
             _triggerHostTally();
           }
@@ -355,7 +355,7 @@ class OnlineGameEngine extends ChangeNotifier {
 
     final target = players[targetIndex];
     final logsCopy = List<String>.from(logs);
-    logsCopy.add('$localPlayerName، ${target['name']} را برای صدراعظمی نامزد کرد. رای‌های خود را بدهید!');
+    logsCopy.add('${currentPres['name']}، ${target['name']} را برای صدراعظمی نامزد کرد. رای‌های خود را بدهید!');
 
     await FirebaseManager.updateGame(lobbyCode, {
       'nominatedChancellorIndex': targetIndex,
@@ -380,9 +380,9 @@ class OnlineGameEngine extends ChangeNotifier {
   // Tally votes (Host or President fallback if host is dead/disconnected)
   Future<void> tallyVotes() async {
     final hostPlayer = players.firstWhere((p) => p['id'] == hostId, orElse: () => null);
-    final bool isHostActive = hostPlayer != null && hostPlayer['isAlive'] == true && hostPlayer['isDisconnected'] != true;
+    final bool isHostConnected = hostPlayer != null && hostPlayer['isDisconnected'] != true;
     
-    final bool canITally = isHostActive ? isHost : isMyTurnPresident;
+    final bool canITally = isHostConnected ? isHost : isMyTurnPresident;
     if (!canITally || phaseStr != 'electionVoting') return;
 
     int jaCount = 0;
