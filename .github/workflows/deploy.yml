@@ -54,6 +54,9 @@ jobs:
           script: |
             cd /home/deploy/secret-hitler
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+            echo "FARAZSMS_API_KEY=${{ secrets.FARAZSMS_API_KEY || 'oXpOP50z04q3bde7cULKJq1Fwbh1gvUJJT7menHAy488KsHnFA' }}" >> .env
+            echo "FARAZSMS_PATTERN_CODE=${{ secrets.FARAZSMS_PATTERN_CODE }}" >> .env
+            echo "FARAZSMS_ORIGINATOR=${{ secrets.FARAZSMS_ORIGINATOR }}" >> .env
             # Install docker & docker-compose if not present
             if ! command -v docker &> /dev/null; then
               sudo apt-get update && sudo apt-get install -y docker.io docker-compose
