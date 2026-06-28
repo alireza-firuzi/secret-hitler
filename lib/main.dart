@@ -12,16 +12,18 @@ import 'screens/multiplayer_setup_screen.dart';
 import 'screens/online_lobby_screen.dart';
 import 'screens/online_game_board_screen.dart';
 import 'screens/multiplayer_sandbox_screen.dart';
+import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp();
-    print("Firebase Core initialized successfully.");
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print("Firebase Core initialized successfully with config.");
   } catch (e) {
     print("Firebase Core initialization warning: $e");
-    print("Sign-ins may fallback to mock if Firebase project is not configured via `flutterfire configure`.");
   }
   await FirebaseManager.initialize();
   runApp(const SecretHitlerApp());
