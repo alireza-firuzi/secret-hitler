@@ -72,11 +72,14 @@ async function generateNarration(phase, detail = '') {
     return getFallbackNarration(phase, detail);
   }
 
-  const prompt = `You are a theatrical, dark, mysterious 1930s Persian game narrator for "Secret Hitler". 
-Write a short, highly atmospheric narration (maximum 15 words) in Persian (using Persian script, no English, no Finglish) for the following game event:
+  const prompt = `You are a clear, direct game narrator for "Secret Hitler" in Persian.
+Your narration must be exactly aligned with the gameplay warning or notification shown to the user.
+Do not write a story or be overly dramatic. Just make the clear game announcement.
+If the event is 'setup', output exactly: "بازی شروع شد."
+Write maximum 15 words in Persian (Persian script only).
 Event: ${phase}
 Additional Detail: ${detail}
-Output ONLY the Persian narration text. No quotes, no explanations.`;
+Output ONLY the Persian text.`;
 
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -105,8 +108,8 @@ Output ONLY the Persian narration text. No quotes, no explanations.`;
 
 function getFallbackNarration(phase, detail) {
   const fallbacks = {
-    'setup': 'بازی آغاز شد. فاشیست‌ها در سایه و لیبرال‌ها در پی حقیقت هستند.',
-    'discussion': 'فاز بحث و گفت‌وگو آغاز شد. به صحبت‌های یکدیگر گوش دهید و فاشیست‌ها را شناسایی کنید.',
+    'setup': 'بازی شروع شد.',
+    'discussion': 'فاز گفت‌وگو آغاز شد.',
     'president_reveal': `رئیس‌جمهور جدید ${detail} است. نامزد خود برای صدراعظمی را معرفی کند.`,
     'president_reveal_hitler_warning': `رئیس‌جمهور جدید ${detail} است. هشدار: ۳ یا بیشتر قانون فاشیستی تصویب شده است! اگر هیتلر به عنوان صدراعظم انتخاب شود، فاشیست‌ها فوراً برنده خواهند شد!`,
     'vote_passed': 'رای‌گیری با موفقیت تصویب شد. دولت جدید مستقر می‌شود.',

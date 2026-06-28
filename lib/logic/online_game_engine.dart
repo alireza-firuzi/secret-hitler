@@ -60,7 +60,7 @@ class OnlineGameEngine extends ChangeNotifier {
             final previousAlive = (_gameData['players'] as List?)?.where((p) => p['isAlive'] == true).length ?? 0;
 
             // 1. Check phase transition sounds
-            if (!aiNarratorEnabled && currentPhase != previousPhase) {
+            if (currentPhase != previousPhase) {
               if (currentPhase == 'roleReveal' || currentPhase == 'electionNomination') {
               } else if (currentPhase == 'gameOver') {
                 if (winner == 'Liberals') {
@@ -80,7 +80,7 @@ class OnlineGameEngine extends ChangeNotifier {
             }
 
             // 2. Check independent action/policy event sounds (played regardless of phase changes, but not if game is over)
-            if (!aiNarratorEnabled && currentPhase != 'gameOver') {
+            if (currentPhase != 'gameOver') {
               if (currentFas > previousFas) {
                 SoundManager.play(SoundEvent.alarm);
               } else if (currentLib > previousLib) {
