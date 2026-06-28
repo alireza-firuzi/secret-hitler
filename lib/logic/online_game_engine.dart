@@ -60,7 +60,7 @@ class OnlineGameEngine extends ChangeNotifier {
             final previousAlive = (_gameData['players'] as List?)?.where((p) => p['isAlive'] == true).length ?? 0;
 
             // 1. Check phase transition sounds
-            if (currentPhase != previousPhase) {
+            if (!aiNarratorEnabled && currentPhase != previousPhase) {
               if (currentPhase == 'roleReveal' || currentPhase == 'electionNomination') {
               } else if (currentPhase == 'gameOver') {
                 if (winner == 'Liberals') {
@@ -80,7 +80,7 @@ class OnlineGameEngine extends ChangeNotifier {
             }
 
             // 2. Check independent action/policy event sounds (played regardless of phase changes, but not if game is over)
-            if (currentPhase != 'gameOver') {
+            if (!aiNarratorEnabled && currentPhase != 'gameOver') {
               if (currentFas > previousFas) {
                 SoundManager.play(SoundEvent.alarm);
               } else if (currentLib > previousLib) {
@@ -108,6 +108,11 @@ class OnlineGameEngine extends ChangeNotifier {
           if (shouldITally) {
             _triggerHostTally();
           }
+        }
+
+        // Host handles bot actions
+        if (isHost && data['status'] == 'playing') {
+          _handleBotActions();
         }
 
         notifyListeners();
@@ -152,7 +157,10 @@ class OnlineGameEngine extends ChangeNotifier {
     if (phaseStr != 'executiveAction') return false;
     final executorIndex = powerExecutorIndex;
     if (executorIndex == -1 || executorIndex >= players.length) return false;
-    return players[executorIndex]['id'] == localPlayerId && amIAlive;
+    final executor = players[executorIndex];
+    final bool isExecutorMe = executor['id'] == localPlayerId;
+    final bool isExecutorBot = executor['isBot'] == true;
+    return (isExecutorMe || (isHost && isExecutorBot)) && amIAlive;
   }
 
   List<dynamic> get players => _gameData['players'] ?? [];
@@ -172,6 +180,9 @@ class OnlineGameEngine extends ChangeNotifier {
   List<dynamic> get logs => _gameData['logs'] ?? [];
   String? get winner => _gameData['winner'];
   String? get winReason => _gameData['winReason'];
+  String get narration => _gameData['narration'] ?? '';
+  String get narrationId => _gameData['narrationId'] ?? '';
+  bool get aiNarratorEnabled => _gameData['aiNarratorEnabled'] ?? true;
   String? get investigatedParty => _gameData['investigatedParty'];
   Map<String, dynamic>? get lastElectionResult => _gameData['lastElectionResult'];
   int get investigatedPlayerIndex => _gameData['investigatedPlayerIndex'] ?? -1;
@@ -192,6 +203,12 @@ class OnlineGameEngine extends ChangeNotifier {
   Future<void> updateDiscussionDuration(int seconds) async {
     await FirebaseManager.updateGame(lobbyCode, {
       'discussionDuration': seconds,
+    });
+  }
+
+  Future<void> updateAiNarrator(bool enabled) async {
+    await FirebaseManager.updateGame(lobbyCode, {
+      'aiNarratorEnabled': enabled,
     });
   }
 
@@ -331,7 +348,10 @@ class OnlineGameEngine extends ChangeNotifier {
 
   // President nominates Chancellor
   Future<void> nominateChancellor(int targetIndex) async {
-    if (!isMyTurnPresident || phaseStr != 'electionNomination') return;
+    final currentPres = players[presidentIndex];
+    final bool isBotPresident = currentPres['isBot'] == true;
+    final bool canIDecide = isMyTurnPresident || (isHost && isBotPresident);
+    if (!canIDecide || phaseStr != 'electionNomination') return;
 
     final target = players[targetIndex];
     final logsCopy = List<String>.from(logs);
@@ -524,7 +544,10 @@ class OnlineGameEngine extends ChangeNotifier {
 
   // President discards one card
   Future<void> presidentDiscardPolicy(int discardIndex) async {
-    if (!isMyTurnPresident || phaseStr != 'legislativePresident') return;
+    final currentPres = players[presidentIndex];
+    final bool isBotPresident = currentPres['isBot'] == true;
+    final bool canIDecide = isMyTurnPresident || (isHost && isBotPresident);
+    if (!canIDecide || phaseStr != 'legislativePresident') return;
 
     final List<dynamic> drawn = List.from(drawnPolicies);
     final discardedPolicy = drawn.removeAt(discardIndex);
@@ -545,7 +568,10 @@ class OnlineGameEngine extends ChangeNotifier {
 
   // Chancellor enacts one card (clicks it to enact)
   Future<void> chancellorEnactPolicy(int enactIndex) async {
-    if (!isMyTurnChancellor || phaseStr != 'legislativeChancellor') return;
+    final currentChan = players[chancellorIndex];
+    final bool isBotChancellor = currentChan['isBot'] == true;
+    final bool canIDecide = isMyTurnChancellor || (isHost && isBotChancellor);
+    if (!canIDecide || phaseStr != 'legislativeChancellor') return;
 
     final List<dynamic> drawn = List.from(drawnPolicies);
     final enactedPolicy = drawn.removeAt(enactIndex);
@@ -950,5 +976,134 @@ class OnlineGameEngine extends ChangeNotifier {
       return 'execution';
     }
     return 'none';
+  }
+
+  // Request to add test bots
+  Future<void> addMockBots() async {
+    if (!isHost) return;
+    await FirebaseManager.addMockBots(lobbyCode);
+  }
+
+  // Simulator bot decisions in background (runs ONLY on the host device)
+  void _handleBotActions() {
+    if (phaseStr == 'electionNomination') {
+      final currentPres = players[presidentIndex];
+      if (currentPres['isBot'] == true && nominatedChancellorIndex == -1) {
+        // Nominate a random eligible chancellor
+        int targetIdx = -1;
+        final list = List.generate(players.length, (i) => i)..shuffle();
+        for (final idx in list) {
+          if (idx != presidentIndex && players[idx]['isAlive'] == true) {
+            final aliveCount = alivePlayersCount;
+            bool eligible = true;
+            if (aliveCount == 5) {
+              eligible = idx != previousChancellorIndex;
+            } else {
+              eligible = idx != previousChancellorIndex && idx != previousPresidentIndex;
+            }
+            if (eligible) {
+              targetIdx = idx;
+              break;
+            }
+          }
+        }
+        if (targetIdx != -1) {
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            nominateChancellor(targetIdx);
+          });
+        }
+      }
+    } else if (phaseStr == 'electionVoting') {
+      // Auto bot votes
+      final updatedVotes = Map<String, dynamic>.from(votes);
+      bool updated = false;
+      for (final p in players) {
+        if (p['isBot'] == true && p['isAlive'] == true && updatedVotes[p['id']] == null) {
+          updatedVotes[p['id']] = true; // Bots always vote Ja
+          updated = true;
+        }
+      }
+      if (updated) {
+        FirebaseManager.updateGame(lobbyCode, {
+          'votes': updatedVotes,
+        });
+      }
+    } else if (phaseStr == 'legislativePresident') {
+      final currentPres = players[presidentIndex];
+      if (currentPres['isBot'] == true && drawnPolicies.length == 3) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          presidentDiscardPolicy(0);
+        });
+      }
+    } else if (phaseStr == 'legislativeChancellor') {
+      final currentChan = players[chancellorIndex];
+      if (currentChan['isBot'] == true && drawnPolicies.length == 2) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          chancellorEnactPolicy(0);
+        });
+      }
+    } else if (phaseStr == 'executiveAction') {
+      final executorIdx = powerExecutorIndex;
+      if (executorIdx != -1 && executorIdx < players.length) {
+        final executor = players[executorIdx];
+        if (executor['isBot'] == true) {
+          if (activePowerStr == 'policyPeek') {
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              executePolicyPeek().then((_) {
+                Future.delayed(const Duration(milliseconds: 1500), () {
+                  completePolicyPeek();
+                });
+              });
+            });
+          } else if (activePowerStr == 'investigateLoyalty') {
+            int targetIdx = -1;
+            final list = List.generate(players.length, (i) => i)..shuffle();
+            for (final idx in list) {
+              if (idx != executorIdx && players[idx]['isAlive'] == true && players[idx]['isBot'] != true) {
+                targetIdx = idx;
+                break;
+              }
+            }
+            if (targetIdx != -1) {
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                executeInvestigateLoyalty(targetIdx).then((_) {
+                  Future.delayed(const Duration(milliseconds: 1500), () {
+                    completeInvestigateLoyalty();
+                  });
+                });
+              });
+            }
+          } else if (activePowerStr == 'callSpecialElection') {
+            int targetIdx = -1;
+            final list = List.generate(players.length, (i) => i)..shuffle();
+            for (final idx in list) {
+              if (idx != executorIdx && players[idx]['isAlive'] == true) {
+                targetIdx = idx;
+                break;
+              }
+            }
+            if (targetIdx != -1) {
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                executeCallSpecialElection(targetIdx);
+              });
+            }
+          } else if (activePowerStr == 'execution') {
+            int targetIdx = -1;
+            final list = List.generate(players.length, (i) => i)..shuffle();
+            for (final idx in list) {
+              if (idx != executorIdx && players[idx]['isAlive'] == true && players[idx]['isBot'] != true) {
+                targetIdx = idx;
+                break;
+              }
+            }
+            if (targetIdx != -1) {
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                executeExecution(targetIdx);
+              });
+            }
+          }
+        }
+      }
+    }
   }
 }

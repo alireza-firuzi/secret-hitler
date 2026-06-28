@@ -1,10 +1,42 @@
 const { WebSocketServer } = require('ws');
 const http = require('http');
+const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
 
 const PORT = process.env.PORT || 3000;
 
 // Create HTTP Server
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  
+  if (urlObj.pathname === '/api/tts') {
+    const text = urlObj.searchParams.get('text');
+    if (!text) {
+      res.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('Missing text parameter');
+      return;
+    }
+
+    try {
+      const tts = new MsEdgeTTS();
+      await tts.setMetadata("fa-IR-DilaraNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+      
+      res.writeHead(200, {
+        'Content-Type': 'audio/mpeg',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Cache-Control': 'public, max-age=3600'
+      });
+
+      const { audioStream } = tts.toStream(text);
+      audioStream.pipe(res);
+    } catch (e) {
+      console.error("TTS Proxy Error:", e);
+      res.writeHead(500, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('Error proxying Edge TTS');
+    }
+    return;
+  }
+
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Secret Hitler WebSocket Sync Server is running.\n');
 });
@@ -30,6 +62,66 @@ wss.on('close', () => {
 
 // Memory databases
 const { MongoClient } = require('mongodb');
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+async function generateNarration(phase, detail = '') {
+  console.log(`[AI Narrator] Generating narration for event: ${phase} (${detail})`);
+  if (!GEMINI_API_KEY) {
+    console.log(`[AI Narrator] No Gemini API Key set, using fallback.`);
+    return getFallbackNarration(phase, detail);
+  }
+
+  const prompt = `You are a theatrical, dark, mysterious 1930s Persian game narrator for "Secret Hitler". 
+Write a short, highly atmospheric narration (maximum 15 words) in Persian (using Persian script, no English, no Finglish) for the following game event:
+Event: ${phase}
+Additional Detail: ${detail}
+Output ONLY the Persian narration text. No quotes, no explanations.`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+    const data = await response.json();
+    console.log("[AI Narrator] Gemini response data:", JSON.stringify(data));
+    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+      const text = data.candidates[0].content.parts[0].text.trim();
+      if (text) {
+        console.log(`[AI Narrator] Success! Text: ${text}`);
+        return text;
+      }
+    }
+  } catch (e) {
+    console.error("[AI Narrator] Gemini API Error:", e);
+  }
+  console.log(`[AI Narrator] Falling back to pre-recorded template.`);
+  return getFallbackNarration(phase, detail);
+}
+
+function getFallbackNarration(phase, detail) {
+  const fallbacks = {
+    'setup': 'بازی آغاز شد. فاشیست‌ها در سایه و لیبرال‌ها در پی حقیقت هستند.',
+    'discussion': 'فاز بحث و گفت‌وگو آغاز شد. به صحبت‌های یکدیگر گوش دهید و فاشیست‌ها را شناسایی کنید.',
+    'president_reveal': `رئیس‌جمهور جدید ${detail} است. نامزد خود برای صدراعظمی را معرفی کند.`,
+    'president_reveal_hitler_warning': `رئیس‌جمهور جدید ${detail} است. هشدار: ۳ قانون فاشیستی تصویب شده است! اگر هیتلر به عنوان صدراعظم انتخاب شود، فاشیست‌ها فوراً برنده خواهند شد!`,
+    'vote_passed': 'رای‌گیری با موفقیت تصویب شد. دولت جدید مستقر می‌شود.',
+    'vote_failed': 'رای‌گیری شکست خورد. هرج و مرج در مجلس حاکم است.',
+    'policy_liberal': 'یک قانون لیبرال تصویب شد. دموکراسی زنده است.',
+    'policy_fascist': 'یک قانون فاشیست تصویب شد. سایه دیکتاتوری نزدیک‌تر می‌شود.',
+    'power_execution': 'قانون فاشیستی جدید تصویب شد! رئیس‌جمهور قدرت اعدام دارد. او باید یک بازیکن را برای همیشه از بازی حذف کند.',
+    'power_investigate': 'قانون فاشیستی جدید تصویب شد! رئیس‌جمهور قدرت تفحص دارد. او می‌تواند وفاداری حزبی یکی از بازیکنان را بررسی کند.',
+    'power_election': 'قانون فاشیستی جدید تصویب شد! رئیس‌جمهور قدرت انتخابات ویژه دارد. او می‌تواند کاندیدای بعدی ریاست‌جمهوری را منصوب کند.',
+    'power_peek': 'قانون فاشیستی جدید تصویب شد! رئیس‌جمهور قدرت پیش‌بینی دارد. او می‌تواند ۳ کارت بالای دسته سیاست‌ها را نگاه کند.',
+    'game_win_liberal': 'لیبرال‌ها پیروز شدند! صلح و آزادی بازگشت.',
+    'game_win_fascist': 'فاشیست‌ها پیروز شدند! هیتلر به قدرت رسید.'
+  };
+  return fallbacks[phase] || 'رویداد جدیدی در بازی ثبت شد.';
+}
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/secret_hitler';
 let db = null;
@@ -361,6 +453,51 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'addBots': {
+          const game = games[lobbyCode];
+          if (!game) {
+            ws.send(JSON.stringify({ type: 'error', message: 'کد لابی یافت نشد.' }));
+            return;
+          }
+
+          const botNames = ['مستشارالدوله', 'ژنرال طوفان', 'شاهد عینی', 'مرد خاکستری', 'سایه پنهان', 'نویسنده', 'سخنور', 'دیده‌بان', 'دادستان', 'قاضی'];
+          const botAvatars = ['avatar_2', 'avatar_3', 'avatar_4', 'avatar_5', 'avatar_6', 'avatar_7', 'avatar_8', 'avatar_9', 'avatar_10', 'avatar_11'];
+
+          let botsAdded = 0;
+          for (let i = 0; i < botNames.length; i++) {
+            if (botsAdded >= 5) break;
+            if (game.players.length >= 10) break;
+            
+            const botName = botNames[i];
+            const botAvatar = botAvatars[i];
+            const botId = `bot_${Math.random().toString(36).substr(2, 9)}`;
+
+            // Check if this bot name or avatar is already taken
+            const isNameTaken = game.players.some(p => p.name === botName);
+            const isAvatarTaken = game.players.some(p => p.avatar === botAvatar);
+
+            if (!isNameTaken && !isAvatarTaken) {
+              game.playerIds.push(botId);
+              game.players.push({
+                id: botId,
+                name: botName,
+                avatar: botAvatar,
+                isAlive: true,
+                isInvestigated: false,
+                isDisconnected: false,
+                isBot: true,
+              });
+              game.logs.push(`${botName} (ربات) به لابی پیوست.`);
+              botsAdded++;
+            }
+          }
+
+          if (botsAdded > 0) {
+            broadcast(lobbyCode);
+          }
+          break;
+        }
+
         case 'checkLobby': {
           const game = games[lobbyCode];
           if (!game) {
@@ -437,12 +574,68 @@ wss.on('connection', (ws) => {
           
           if (game) {
             const oldWinner = game.winner;
+            const oldPhase = game.phase;
+            const oldLib = game.liberalPolicies || 0;
+            const oldFas = game.fascistPolicies || 0;
+            const oldElection = game.lastElectionResult ? JSON.stringify(game.lastElectionResult) : '';
+
+            console.log(`[AI Narrator] State update event in lobby ${lobbyCode}: phase ${oldPhase} -> ${updates.phase || oldPhase}, lib ${oldLib} -> ${updates.liberalPolicies || oldLib}, fas ${oldFas} -> ${updates.fascistPolicies || oldFas}`);
+
             Object.assign(game, updates);
             broadcast(lobbyCode);
 
-            // Check if game just ended
+            const newElection = game.lastElectionResult ? JSON.stringify(game.lastElectionResult) : '';
+
+            // Determine if a narratable event occurred
+            let narrationEvent = null;
+            let narrationDetail = '';
+
             if (game.winner && !oldWinner) {
+              narrationEvent = game.winner === 'Liberals' ? 'game_win_liberal' : 'game_win_fascist';
               updatePlayersStats(lobbyCode, game.winner);
+            } else if (newElection !== oldElection && game.lastElectionResult) {
+              narrationEvent = game.lastElectionResult.passed ? 'vote_passed' : 'vote_failed';
+              narrationDetail = game.lastElectionResult.nomineeName;
+            } else if (game.phase !== oldPhase) {
+              if (game.phase === 'roleReveal') {
+                narrationEvent = 'setup';
+              } else if (game.phase === 'electionNomination') {
+                const pres = (game.players || [])[game.presidentIndex];
+                const presName = pres ? pres.name : '';
+                if ((game.fascistPolicies || 0) >= 3) {
+                  narrationEvent = 'president_reveal_hitler_warning';
+                } else {
+                  narrationEvent = 'president_reveal';
+                }
+                narrationDetail = presName;
+              } else if (game.phase === 'discussion') {
+                narrationEvent = 'discussion';
+              } else if (game.phase === 'executiveAction') {
+                const power = game.activePower;
+                if (power === 'execution') {
+                  narrationEvent = 'power_execution';
+                } else if (power === 'investigateLoyalty') {
+                  narrationEvent = 'power_investigate';
+                } else if (power === 'callSpecialElection') {
+                  narrationEvent = 'power_election';
+                } else if (power === 'policyPeek') {
+                  narrationEvent = 'power_peek';
+                }
+              }
+            } else if ((game.liberalPolicies || 0) > oldLib) {
+              narrationEvent = 'policy_liberal';
+            } else if ((game.fascistPolicies || 0) > oldFas) {
+              narrationEvent = 'policy_fascist';
+            }
+
+            if (narrationEvent) {
+              console.log(`[AI Narrator] Event detected: ${narrationEvent}. Requesting narration...`);
+              generateNarration(narrationEvent, narrationDetail).then(text => {
+                console.log(`[AI Narrator] Text received: "${text}". Broadcasting to client...`);
+                game.narration = text;
+                game.narrationId = Date.now().toString();
+                broadcast(lobbyCode);
+              }).catch(e => console.error("[AI Narrator] Error generating narration:", e));
             }
           }
           break;

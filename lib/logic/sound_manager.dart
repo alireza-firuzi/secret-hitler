@@ -1,4 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:js' as js;
 
 enum SoundEvent {
   alarm,
@@ -69,6 +71,49 @@ class SoundManager {
       });
     } catch (e) {
       print("Error playing sound $event: $e");
+    }
+  }
+
+  static Future<void> playSpeech(String text) async {
+    if (_muted || text.trim().isEmpty) return;
+
+    try {
+      String protocol = 'http';
+      String serverHost = 'localhost:3000';
+
+      if (kIsWeb) {
+        final uri = Uri.base;
+        protocol = uri.scheme == 'https' ? 'https' : 'http';
+        if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
+          serverHost = '${uri.host}:3000';
+        }
+      }
+
+      final String encodedText = Uri.encodeComponent(text);
+      final String url = '$protocol://$serverHost/api/tts?text=$encodedText';
+
+      if (_currentPlayer != null) {
+        try {
+          await _currentPlayer!.stop();
+          await _currentPlayer!.dispose();
+        } catch (_) {}
+        _currentPlayer = null;
+      }
+
+      final player = AudioPlayer();
+      _currentPlayer = player;
+      await player.play(UrlSource(url));
+
+      player.onPlayerComplete.listen((_) {
+        if (_currentPlayer == player) {
+          _currentPlayer = null;
+        }
+        try {
+          player.dispose();
+        } catch (_) {}
+      });
+    } catch (e) {
+      print("Error playing speech: $e");
     }
   }
 

@@ -30,6 +30,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
   int? _lastLib;
   bool _hasAnnouncedThirdFascistPower = false;
   bool _hasAnnouncedExecutionPower = false;
+  String? _lastNarrationId;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     _lastPhase = widget.engine.phaseStr;
     _lastFas = widget.engine.fascistPolicies;
     _lastLib = widget.engine.liberalPolicies;
+    _lastNarrationId = widget.engine.narrationId;
   }
 
   @override
@@ -50,6 +52,14 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     final currentPhase = widget.engine.phaseStr;
     final currentFas = widget.engine.fascistPolicies;
     final currentLib = widget.engine.liberalPolicies;
+    final currentNarrationId = widget.engine.narrationId;
+    final currentNarration = widget.engine.narration;
+
+    // Check for new AI speech narration
+    if (currentNarrationId.isNotEmpty && currentNarrationId != _lastNarrationId) {
+      _lastNarrationId = currentNarrationId;
+      SoundManager.playSpeech(currentNarration);
+    }
 
     // Check if a new card was placed (policies count increased)
     if (_lastFas != null && _lastLib != null) {
@@ -1753,7 +1763,11 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
     }
 
     if (power == 'investigateLoyalty' && _showingLoyaltyResult) {
-      final target = widget.engine.players[widget.engine.investigatedPlayerIndex];
+      final targetIdx = widget.engine.investigatedPlayerIndex;
+      if (targetIdx < 0 || targetIdx >= widget.engine.players.length) {
+        return const SizedBox.shrink();
+      }
+      final target = widget.engine.players[targetIdx];
       final party = widget.engine.investigatedParty;
 
       return Column(

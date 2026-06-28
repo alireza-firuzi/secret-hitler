@@ -36,9 +36,10 @@ class FirebaseManager {
   static String get _wsUrl {
     if (kIsWeb) {
       final uri = Uri.base;
+      final protocol = uri.scheme == 'https' ? 'wss' : 'ws';
       if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
-        // Production hosted backend server on Render
-        return 'wss://secret-hitler-backend-alireza.onrender.com';
+        // Automatically connect to the same host but port 3000 for self-hosting on VPS
+        return '$protocol://${uri.host}:3000';
       }
     }
     return 'ws://localhost:3000';
@@ -495,5 +496,17 @@ class FirebaseManager {
     final result = await completer.future;
     timer.cancel();
     return result;
+  }
+
+  // Request to add dev test bots to the lobby
+  static Future<void> addMockBots(String lobbyCode) async {
+    if (_channel == null || !_firebaseInitialized) {
+      _connectWebSocket();
+      _firebaseInitialized = true;
+    }
+    _channel!.sink.add(jsonEncode({
+      'action': 'addBots',
+      'lobbyCode': lobbyCode,
+    }));
   }
 }

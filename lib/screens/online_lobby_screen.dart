@@ -300,11 +300,72 @@ class OnlineLobbyScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2523),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3), width: 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.record_voice_over, color: Color(0xFFD4AF37), size: 20),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'گوینده صوتی هوش مصنوعی',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'اعلام صوتی اتفاقات مهم بازی',
+                            style: TextStyle(color: Colors.white38, fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: engine.aiNarratorEnabled,
+                      activeColor: const Color(0xFFD4AF37),
+                      activeTrackColor: const Color(0xFFD4AF37).withOpacity(0.4),
+                      inactiveThumbColor: Colors.grey,
+                      inactiveTrackColor: Colors.grey.withOpacity(0.2),
+                      onChanged: isHost
+                          ? (val) {
+                              engine.updateAiNarrator(val);
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Action controls
               if (isHost) ...[
+                if (playersList.length < 10) ...[
+                  OutlinedButton.icon(
+                    onPressed: () => engine.addMockBots(),
+                    icon: const Icon(Icons.android, color: Color(0xFFD4AF37)),
+                    label: const Text(
+                      'افزودن ربات‌های آزمایشی',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFD4AF37),
+                      side: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 ElevatedButton(
                   onPressed: playersList.length >= 5 ? () => engine.startGame() : null,
                   style: ElevatedButton.styleFrom(
