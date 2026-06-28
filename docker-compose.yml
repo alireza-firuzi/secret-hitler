@@ -4,49 +4,35 @@ services:
   mongodb:
     image: mongo:latest
     container_name: secret_hitler_mongodb
+    restart: always
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
-    networks:
-      - secret_hitler_network
-    restart: always
+      - mongo_data:/data/db
 
   backend:
     build:
       context: ./server
-      dockerfile: Dockerfile
     container_name: secret_hitler_backend
+    restart: always
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
       - MONGODB_URI=mongodb://mongodb:27017/secret_hitler
-      # If you set up a Gemini API Key, pass it here:
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - PORT=3000
+      - GEMINI_API_KEY
     depends_on:
       - mongodb
-    networks:
-      - secret_hitler_network
-    restart: always
 
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
     container_name: secret_hitler_frontend
+    restart: always
     ports:
-      # Map the port to whatever you want to access the app on your VPS
-      - "8080:80"
+      - "80:80"
     depends_on:
       - backend
-    networks:
-      - secret_hitler_network
-    restart: always
 
 volumes:
-  mongodb_data:
-
-networks:
-  secret_hitler_network:
-    driver: bridge
+  mongo_data:

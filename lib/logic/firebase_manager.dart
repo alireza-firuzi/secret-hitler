@@ -38,8 +38,8 @@ class FirebaseManager {
       final uri = Uri.base;
       final protocol = uri.scheme == 'https' ? 'wss' : 'ws';
       if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
-        // Automatically connect to the same host but port 3000 for self-hosting on VPS
-        return '$protocol://${uri.host}:3000';
+        // Route through Nginx proxy under /secret-hitler/ws
+        return '$protocol://${uri.host}/secret-hitler/ws';
       }
     }
     return 'ws://localhost:3000';

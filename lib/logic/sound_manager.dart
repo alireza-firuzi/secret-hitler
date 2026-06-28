@@ -80,17 +80,19 @@ class SoundManager {
     try {
       String protocol = 'http';
       String serverHost = 'localhost:3000';
+      String apiPath = '/api/tts';
 
       if (kIsWeb) {
         final uri = Uri.base;
         protocol = uri.scheme == 'https' ? 'https' : 'http';
         if (uri.host != 'localhost' && uri.host != '127.0.0.1' && uri.host.isNotEmpty) {
-          serverHost = '${uri.host}:3000';
+          serverHost = uri.host;
+          apiPath = '/secret-hitler/api/tts';
         }
       }
 
       final String encodedText = Uri.encodeComponent(text);
-      final String url = '$protocol://$serverHost/api/tts?text=$encodedText';
+      final String url = '$protocol://$serverHost$apiPath?text=$encodedText';
 
       if (_currentPlayer != null) {
         try {

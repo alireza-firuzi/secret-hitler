@@ -460,7 +460,7 @@ wss.on('connection', (ws) => {
             return;
           }
 
-          const botNames = ['مستشارالدوله', 'ژنرال طوفان', 'شاهد عینی', 'مرد خاکستری', 'سایه پنهان', 'نویسنده', 'سخنور', 'دیده‌بان', 'دادستان', 'قاضی'];
+          const botNames = ['علیرضا', 'محمد', 'طلایه', 'پریچهر', 'سجاد', 'حمید', 'حدیث', 'فربد', 'حسن', 'کاظم'];
           const botAvatars = ['avatar_2', 'avatar_3', 'avatar_4', 'avatar_5', 'avatar_6', 'avatar_7', 'avatar_8', 'avatar_9', 'avatar_10', 'avatar_11'];
 
           let botsAdded = 0;
@@ -590,7 +590,10 @@ wss.on('connection', (ws) => {
             let narrationEvent = null;
             let narrationDetail = '';
 
-            if (game.winner && !oldWinner) {
+            if (oldWinner) {
+              // Game already won, ignore any subsequent game event narrations
+              narrationEvent = null;
+            } else if (game.winner && !oldWinner) {
               narrationEvent = game.winner === 'Liberals' ? 'game_win_liberal' : 'game_win_fascist';
               updatePlayersStats(lobbyCode, game.winner);
             } else if (newElection !== oldElection && game.lastElectionResult) {
