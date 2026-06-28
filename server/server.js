@@ -1,6 +1,56 @@
 const { WebSocketServer } = require('ws');
 const http = require('http');
+const https = require('https');
 const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
+
+// Helper to send pattern SMS via FarazSMS / IPPanel
+function sendIppanelSms(phone, code) {
+  return new Promise((resolve, reject) => {
+    let formattedPhone = phone.trim();
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '98' + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith('+')) {
+      formattedPhone = formattedPhone.substring(1);
+    }
+
+    const data = JSON.stringify({
+      pattern_code: process.env.FARAZSMS_PATTERN_CODE || "5uq6gsc1m94r37g", 
+      originator: process.env.FARAZSMS_ORIGINATOR || "+983000505",
+      recipient: formattedPhone,
+      values: {
+        code: code
+      }
+    });
+
+    const apiKey = process.env.FARAZSMS_API_KEY || 'oXpOP50z04q3bde7cULKJq1Fwbh1gvUJJT7menHAy488KsHnFA';
+    const options = {
+      hostname: 'edge.ippanel.com',
+      port: 443,
+      path: '/v1/messages/patterns/send',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `AccessKey ${apiKey}`
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 200 || res.statusCode === 201) {
+          resolve(JSON.parse(body));
+        } else {
+          reject(new Error(`IPPanel failed with status ${res.statusCode}: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (e) => reject(e));
+    req.write(data);
+    req.end();
+  });
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -20,16 +70,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Generate 6-digit code (simulated)
+    // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     activeOtps.set(phone, { code, expires: Date.now() + 5 * 60 * 1000 });
 
     console.log(`[OTP] Generated code ${code} for phone number ${phone}`);
 
-    // If integrating Kavenegar/FarazSMS, trigger the SMS sending API call here
+    // Trigger FarazSMS call
+    let smsSent = false;
+    let smsError = null;
+    try {
+      await sendIppanelSms(phone, code);
+      smsSent = true;
+      console.log(`[OTP] SMS successfully sent via FarazSMS to ${phone}`);
+    } catch (err) {
+      smsError = err.message;
+      console.error(`[OTP Error] Failed to send SMS via FarazSMS:`, err.message);
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ success: true, message: 'OTP sent successfully', codeForDev: code }));
+    res.end(JSON.stringify({ 
+      success: true, 
+      message: smsSent ? 'OTP sent successfully via SMS' : 'OTP simulated successfully',
+      codeForDev: code,
+      smsError: smsError
+    }));
     return;
   }
 
