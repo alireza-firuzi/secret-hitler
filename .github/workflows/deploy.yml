@@ -34,7 +34,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           source: "Dockerfile,docker-compose.yml,nginx.conf,build/web/**,server/**"
           target: "/home/deploy/secret-hitler"
           rm: true
@@ -44,7 +44,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_IP }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: |
             cd /home/deploy/secret-hitler
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
