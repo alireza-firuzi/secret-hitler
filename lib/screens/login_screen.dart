@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../logic/firebase_manager.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -246,62 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _handleAppleLogin() async {
-    setState(() {
-      _isLoading = true;
-    });
 
-    try {
-      UserCredential userCredential;
-      if (kIsWeb) {
-        final appleProvider = OAuthProvider("apple.com");
-        userCredential = await FirebaseAuth.instance.signInWithPopup(appleProvider);
-      } else {
-        final appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
-        );
-        final OAuthProvider oAuthProvider = OAuthProvider("apple.com");
-        final credential = oAuthProvider.credential(
-          idToken: appleCredential.identityToken,
-          rawNonce: null,
-        );
-        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      }
-
-      final user = userCredential.user;
-      if (user != null) {
-        final name = user.displayName ?? _usernameController.text.trim();
-        final email = user.email ?? '';
-        final uid = user.uid;
-        
-        final profile = await FirebaseManager.loginUser(
-          uid: uid,
-          displayName: name,
-          email: email,
-          photoUrl: _selectedAvatar,
-        );
-
-        if (profile != null) {
-          widget.onLoginSuccess();
-        } else {
-          _showError('خطا در ثبت پروفایل در دیتابیس سرور.');
-        }
-      }
-    } catch (e) {
-      debugPrint("Apple Login Error: $e");
-      _showError('ورود با اپل در این محیط پشتیبانی نمی‌شود. ورود شبیه‌سازی شده فعال شد.');
-      await _handleMockLogin('Apple');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -394,14 +338,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: _handleGoogleLogin,
                             ),
                             const SizedBox(height: 16),
-                            // Apple Login Button
-                            _buildSocialButton(
-                              label: 'ورود با اکانت اپل',
-                              icon: Icons.apple,
-                              color: Colors.black87,
-                              onPressed: _handleAppleLogin,
-                            ),
-                            const SizedBox(height: 24),
                             // Guest Login Button
                             TextButton.icon(
                               onPressed: () {
