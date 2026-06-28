@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../logic/firebase_manager.dart';
 import 'tutorial_screen.dart';
+import 'profile_screen.dart';
+import 'leaderboard_screen.dart';
 
 class MultiplayerSetupScreen extends StatefulWidget {
   final Function(String lobbyCode, String playerName, String playerId) onEnterLobby;
@@ -32,6 +34,9 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
   @override
   void initState() {
     super.initState();
+    if (FirebaseManager.currentUserProfile != null) {
+      _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
+    }
     _checkLobbyCodeFromUrl();
   }
 
@@ -107,7 +112,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
         _isLoading = true;
       });
 
-      final String playerId = 'user_${RandomString.generate(6)}';
+      final String playerId = FirebaseManager.currentUserProfile?['uid'] ?? 'user_${RandomString.generate(6)}';
 
       if (_isCreating) {
         final lobbyCode = await FirebaseManager.createGame(
@@ -142,12 +147,14 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
   }
 
   Future<String?> _showAvatarSelectionDialog(List<String> takenAvatars) {
-    String currentSelected = 'avatar_1';
-    for (int i = 1; i <= 12; i++) {
-      final name = 'avatar_$i';
-      if (!takenAvatars.contains(name)) {
-        currentSelected = name;
-        break;
+    String currentSelected = FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1';
+    if (takenAvatars.contains(currentSelected)) {
+      for (int i = 1; i <= 12; i++) {
+        final name = 'avatar_$i';
+        if (!takenAvatars.contains(name)) {
+          currentSelected = name;
+          break;
+        }
       }
     }
 
@@ -328,38 +335,136 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
               Positioned(
                 top: 50,
                 left: 20,
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TutorialScreen()),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xE6251E1C),
+                child: Row(
+                  children: [
+                    // Profile button
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                        ).then((_) {
+                          // Update UI in case username or avatar changed
+                          if (mounted) {
+                            setState(() {
+                              if (FirebaseManager.currentUserProfile != null) {
+                                _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
+                              }
+                            });
+                          }
+                        });
+                      },
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'آموزش بازی',
-                          style: TextStyle(
-                            color: Color(0xFFE6DFD3),
-                            fontFamily: 'serif',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6251E1C),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 10,
+                              backgroundColor: const Color(0xFF151211),
+                              backgroundImage: AssetImage(
+                                'assets/images/${FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1'}.png',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'پروفایل من',
+                              style: TextStyle(
+                                color: Color(0xFFE6DFD3),
+                                fontFamily: 'serif',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // Leaderboard button
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6251E1C),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.emoji_events, color: Color(0xFFD4AF37), size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'لیدربورد',
+                              style: TextStyle(
+                                color: Color(0xFFE6DFD3),
+                                fontFamily: 'serif',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Tutorial button
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const TutorialScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xE6251E1C),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'آموزش بازی',
+                              style: TextStyle(
+                                color: Color(0xFFE6DFD3),
+                                fontFamily: 'serif',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 50,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFFD4AF37), size: 28),
+                  onPressed: widget.onBack,
                 ),
               ),
               Center(

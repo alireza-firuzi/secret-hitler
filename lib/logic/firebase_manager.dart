@@ -17,6 +17,9 @@ class FirebaseManager {
   // Maps to match request completers for getPrivateRole
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
   static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
+  static final Map<String, Completer<Map<String, dynamic>?>> _loginCompleters = {};
+  static Completer<List<dynamic>?>? _leaderboardCompleter;
+  static Map<String, dynamic>? currentUserProfile;
 
   static String? _activeLobbyCode;
   static String? _activePlayerId;
@@ -87,6 +90,22 @@ class FirebaseManager {
               final completer = _privateRoleCompleters.remove(key);
               if (completer != null && !completer.isCompleted) {
                 completer.complete(data);
+              }
+            } else if (type == 'userProfile') {
+              final data = payload['data'] as Map<String, dynamic>?;
+              currentUserProfile = data;
+              final uid = payload['data']?['uid'] ?? '';
+              final key = 'login_$uid';
+              final completer = _loginCompleters.remove(key);
+              if (completer != null && !completer.isCompleted) {
+                completer.complete(data);
+              }
+            } else if (type == 'leaderboard') {
+              final list = payload['data'] as List<dynamic>?;
+              final completer = _leaderboardCompleter;
+              if (completer != null && !completer.isCompleted) {
+                _leaderboardCompleter = null;
+                completer.complete(list);
               }
             }
           } catch (e) {
@@ -374,5 +393,107 @@ class FirebaseManager {
     } catch (_) {}
     _channel = null;
     _firebaseInitialized = false;
+  }
+
+  // Login or create a persistent user profile in MongoDB
+  static Future<Map<String, dynamic>?> loginUser({
+    required String uid,
+    required String displayName,
+    String? email,
+    String? photoUrl,
+  }) async {
+    final key = 'login_$uid';
+    final completer = Completer<Map<String, dynamic>?>();
+    _loginCompleters[key] = completer;
+
+    if (_channel == null || !_firebaseInitialized) {
+      _connectWebSocket();
+      _firebaseInitialized = true;
+    }
+
+    // Wait for the websocket connection to stabilize before sending
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    _channel!.sink.add(jsonEncode({
+      'action': 'loginUser',
+      'uid': uid,
+      'displayName': displayName,
+      'email': email ?? '',
+      'photoUrl': photoUrl ?? 'avatar_1',
+    }));
+
+    // 10s timeout
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        _loginCompleters.remove(key);
+        completer.complete(null);
+      }
+    });
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
+  // Update user profile (username/avatar)
+  static Future<Map<String, dynamic>?> updateProfile({
+    required String uid,
+    required String displayName,
+    required String photoUrl,
+  }) async {
+    final key = 'login_$uid';
+    final completer = Completer<Map<String, dynamic>?>();
+    _loginCompleters[key] = completer;
+
+    if (_channel == null || !_firebaseInitialized) {
+      _connectWebSocket();
+      _firebaseInitialized = true;
+    }
+
+    _channel!.sink.add(jsonEncode({
+      'action': 'updateProfile',
+      'uid': uid,
+      'displayName': displayName,
+      'photoUrl': photoUrl,
+    }));
+
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        _loginCompleters.remove(key);
+        completer.complete(null);
+      }
+    });
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
+  }
+
+  // Fetch the top 10 users for the leaderboard
+  static Future<List<dynamic>?> getLeaderboard() async {
+    final completer = Completer<List<dynamic>?>();
+    _leaderboardCompleter = completer;
+
+    if (_channel == null || !_firebaseInitialized) {
+      _connectWebSocket();
+      _firebaseInitialized = true;
+    }
+
+    _channel!.sink.add(jsonEncode({
+      'action': 'getLeaderboard',
+    }));
+
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        if (_leaderboardCompleter == completer) {
+          _leaderboardCompleter = null;
+        }
+        completer.complete(null);
+      }
+    });
+
+    final result = await completer.future;
+    timer.cancel();
+    return result;
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'logic/firebase_manager.dart';
 import 'logic/game_engine.dart';
 import 'logic/online_game_engine.dart';
@@ -11,9 +12,17 @@ import 'screens/multiplayer_setup_screen.dart';
 import 'screens/online_lobby_screen.dart';
 import 'screens/online_game_board_screen.dart';
 import 'screens/multiplayer_sandbox_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    print("Firebase Core initialized successfully.");
+  } catch (e) {
+    print("Firebase Core initialization warning: $e");
+    print("Sign-ins may fallback to mock if Firebase project is not configured via `flutterfire configure`.");
+  }
   await FirebaseManager.initialize();
   runApp(const SecretHitlerApp());
 }
@@ -52,6 +61,7 @@ class SecretHitlerApp extends StatelessWidget {
 }
 
 enum AppMode {
+  login,
   onlineSetup,
   onlineLobby,
   onlinePlaying,
@@ -65,7 +75,7 @@ class GameRouter extends StatefulWidget {
 }
 
 class _GameRouterState extends State<GameRouter> {
-  AppMode _mode = AppMode.onlineSetup;
+  AppMode _mode = AppMode.login;
 
   // Online Game values
   String _lobbyCode = '';
@@ -75,7 +85,7 @@ class _GameRouterState extends State<GameRouter> {
 
   void _quitToMenu() {
     setState(() {
-      _mode = AppMode.onlineSetup;
+      _mode = AppMode.login;
       _onlineEngine?.dispose();
       _onlineEngine = null;
       _lobbyCode = '';
@@ -85,9 +95,22 @@ class _GameRouterState extends State<GameRouter> {
   @override
   Widget build(BuildContext context) {
     switch (_mode) {
+      case AppMode.login:
+        return LoginScreen(
+          onLoginSuccess: () {
+            setState(() {
+              _mode = AppMode.onlineSetup;
+            });
+          },
+        );
+
       case AppMode.onlineSetup:
         return MultiplayerSetupScreen(
-          onBack: () {},
+          onBack: () {
+            setState(() {
+              _mode = AppMode.login;
+            });
+          },
           onEnterLobby: (code, name, id) {
             setState(() {
               _lobbyCode = code;

@@ -29,10 +29,85 @@ wss.on('close', () => {
 });
 
 // Memory databases
+const { MongoClient } = require('mongodb');
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/secret_hitler';
+let db = null;
+let gamesCollection = null;
+let privateRolesCollection = null;
+let usersCollection = null;
+
 const games = {}; // lobbyCode -> public game state
 const privateRoles = {}; // lobbyCode -> { playerId -> roleData }
 const clientLobbies = new Map(); // ws client -> lobbyCode
 const clientPlayerIds = new Map(); // ws client -> playerId
+
+async function connectDB() {
+  try {
+    const client = new MongoClient(MONGODB_URI, { 
+      connectTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 5000
+    });
+    await client.connect();
+    db = client.db();
+    gamesCollection = db.collection('games');
+    privateRolesCollection = db.collection('privateRoles');
+    usersCollection = db.collection('users');
+    console.log('Connected successfully to MongoDB');
+
+    // Load active games on startup
+    const dbGames = await gamesCollection.find({}).toArray();
+    for (const g of dbGames) {
+      delete g._id; // Remove MongoDB specific ID to avoid issues on client side
+      games[g.lobbyCode] = g;
+    }
+    const dbPrivateRoles = await privateRolesCollection.find({}).toArray();
+    for (const pr of dbPrivateRoles) {
+      privateRoles[pr.lobbyCode] = pr.roles || {};
+    }
+    console.log(`Loaded ${dbGames.length} active games and ${dbPrivateRoles.length} private roles from MongoDB.`);
+  } catch (err) {
+    console.warn('MongoDB connection failed. Running in memory-only mode:', err.message);
+    db = null;
+  }
+}
+
+connectDB();
+
+async function saveGameToDB(lobbyCode) {
+  if (!db) return;
+  try {
+    const game = games[lobbyCode];
+    if (game) {
+      const gameClone = { ...game };
+      await gamesCollection.replaceOne({ lobbyCode }, gameClone, { upsert: true });
+    }
+  } catch (err) {
+    console.error('Error saving game to MongoDB:', err);
+  }
+}
+
+async function savePrivateRolesToDB(lobbyCode) {
+  if (!db) return;
+  try {
+    const roles = privateRoles[lobbyCode];
+    if (roles) {
+      await privateRolesCollection.replaceOne({ lobbyCode }, { lobbyCode, roles }, { upsert: true });
+    }
+  } catch (err) {
+    console.error('Error saving private roles to MongoDB:', err);
+  }
+}
+
+async function deleteGameFromDB(lobbyCode) {
+  if (!db) return;
+  try {
+    await gamesCollection.deleteOne({ lobbyCode });
+    await privateRolesCollection.deleteOne({ lobbyCode });
+  } catch (err) {
+    console.error('Error deleting game from MongoDB:', err);
+  }
+}
 
 function generateLobbyCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -58,6 +133,50 @@ function broadcast(lobbyCode) {
       client.send(payload);
     }
   }
+
+  // Persist to MongoDB
+  saveGameToDB(lobbyCode);
+}
+
+async function updatePlayersStats(lobbyCode, winningFaction) {
+  if (!db || !usersCollection) return;
+  try {
+    const game = games[lobbyCode];
+    const roles = privateRoles[lobbyCode];
+    if (!game || !roles) return;
+
+    console.log(`Game ended in lobby ${lobbyCode}. Faction winner: ${winningFaction}. Updating player stats.`);
+
+    for (const player of game.players) {
+      const playerId = player.id;
+      const roleData = roles[playerId];
+      if (!roleData) continue;
+
+      const role = roleData.role; // 'Liberal', 'Fascist', or 'Secret Hitler'
+      let isWin = false;
+      if (winningFaction === 'Liberals') {
+        isWin = (role === 'Liberal');
+      } else if (winningFaction === 'Fascists') {
+        isWin = (role === 'Fascist' || role === 'Secret Hitler');
+      }
+
+      const user = await usersCollection.findOne({ uid: playerId });
+      if (user) {
+        const update = {
+          $inc: {
+            'stats.gamesPlayed': 1,
+            'stats.wins': isWin ? 1 : 0,
+            'stats.losses': isWin ? 0 : 1,
+            [`stats.roles.${role}`]: 1
+          }
+        };
+        await usersCollection.updateOne({ uid: playerId }, update);
+        console.log(`Updated stats for user ${user.displayName} (UID: ${playerId}). Won: ${isWin}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error updating player stats:', err);
+  }
 }
 
 function hasActiveConnection(lobbyCode, playerId, currentWs) {
@@ -79,7 +198,7 @@ wss.on('connection', (ws) => {
     ws.isAlive = true;
   });
 
-  ws.on('message', (message) => {
+  ws.on('message', async (message) => {
     try {
       const payload = JSON.parse(message);
       const { action, lobbyCode, playerId } = payload;
@@ -130,6 +249,8 @@ wss.on('connection', (ws) => {
 
           games[code] = newGame;
           privateRoles[code] = {};
+          saveGameToDB(code);
+          savePrivateRolesToDB(code);
 
           clientLobbies.set(ws, code);
           clientPlayerIds.set(ws, playerId);
@@ -275,6 +396,7 @@ wss.on('connection', (ws) => {
                 } else {
                   delete games[lobbyCode];
                   delete privateRoles[lobbyCode];
+                  deleteGameFromDB(lobbyCode);
                   console.log(`Lobby ${lobbyCode} deleted as it became empty.`);
                 }
               }
@@ -314,8 +436,14 @@ wss.on('connection', (ws) => {
           const game = games[lobbyCode];
           
           if (game) {
+            const oldWinner = game.winner;
             Object.assign(game, updates);
             broadcast(lobbyCode);
+
+            // Check if game just ended
+            if (game.winner && !oldWinner) {
+              updatePlayersStats(lobbyCode, game.winner);
+            }
           }
           break;
         }
@@ -326,6 +454,7 @@ wss.on('connection', (ws) => {
             privateRoles[lobbyCode] = {};
           }
           Object.assign(privateRoles[lobbyCode], playerRoles);
+          savePrivateRolesToDB(lobbyCode);
           break;
         }
 
@@ -337,6 +466,83 @@ wss.on('connection', (ws) => {
             lobbyCode: lobbyCode,
             playerId: playerId,
             data: roleData,
+          }));
+          break;
+        }
+
+        case 'loginUser': {
+          const { uid, displayName, email, photoUrl } = payload;
+          if (!usersCollection) {
+            ws.send(JSON.stringify({
+              type: 'userProfile',
+              data: {
+                uid,
+                displayName,
+                email: email || '',
+                photoUrl: photoUrl || 'avatar_1',
+                stats: { gamesPlayed: 0, wins: 0, losses: 0, roles: { Liberal: 0, Fascist: 0, 'Secret Hitler': 0 } }
+              }
+            }));
+            break;
+          }
+          let user = await usersCollection.findOne({ uid });
+          if (!user) {
+            user = {
+              uid,
+              displayName,
+              email: email || '',
+              photoUrl: photoUrl || 'avatar_1',
+              stats: {
+                gamesPlayed: 0,
+                wins: 0,
+                losses: 0,
+                roles: { Liberal: 0, Fascist: 0, 'Secret Hitler': 0 }
+              }
+            };
+            await usersCollection.insertOne(user);
+          }
+          ws.send(JSON.stringify({
+            type: 'userProfile',
+            data: user
+          }));
+          break;
+        }
+
+        case 'updateProfile': {
+          const { uid, displayName, photoUrl } = payload;
+          if (usersCollection) {
+            await usersCollection.updateOne(
+              { uid },
+              { $set: { displayName, photoUrl } }
+            );
+            const user = await usersCollection.findOne({ uid });
+            ws.send(JSON.stringify({
+              type: 'userProfile',
+              data: user
+            }));
+          }
+          break;
+        }
+
+        case 'getLeaderboard': {
+          if (!usersCollection) {
+            ws.send(JSON.stringify({ type: 'leaderboard', data: [] }));
+            break;
+          }
+          const topUsers = await usersCollection.find({})
+            .sort({ 'stats.wins': -1 })
+            .limit(10)
+            .toArray();
+          
+          ws.send(JSON.stringify({
+            type: 'leaderboard',
+            data: topUsers.map(u => ({
+              uid: u.uid,
+              displayName: u.displayName,
+              photoUrl: u.photoUrl,
+              wins: u.stats.wins,
+              gamesPlayed: u.stats.gamesPlayed
+            }))
           }));
           break;
         }
@@ -393,6 +599,7 @@ wss.on('connection', (ws) => {
                       } else {
                         delete games[lobbyCode];
                         delete privateRoles[lobbyCode];
+                        deleteGameFromDB(lobbyCode);
                         console.log(`Lobby ${lobbyCode} deleted as it became empty.`);
                         return;
                       }
