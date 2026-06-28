@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 // Create HTTP Server
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  
+
   if (urlObj.pathname === '/api/tts') {
     const text = urlObj.searchParams.get('text');
     if (!text) {
@@ -18,8 +18,8 @@ const server = http.createServer(async (req, res) => {
 
     try {
       const tts = new MsEdgeTTS();
-      await tts.setMetadata("fa-IR-DilaraNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-      
+      await tts.setMetadata("fa-IR-FaridNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+
       res.writeHead(200, {
         'Content-Type': 'audio/mpeg',
         'Access-Control-Allow-Origin': '*',
@@ -82,7 +82,7 @@ Additional Detail: ${detail}
 Output ONLY the Persian text.`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -139,7 +139,7 @@ const clientPlayerIds = new Map(); // ws client -> playerId
 
 async function connectDB() {
   try {
-    const client = new MongoClient(MONGODB_URI, { 
+    const client = new MongoClient(MONGODB_URI, {
       connectTimeoutMS: 5000,
       serverSelectionTimeoutMS: 5000
     });
@@ -277,9 +277,9 @@ async function updatePlayersStats(lobbyCode, winningFaction) {
 function hasActiveConnection(lobbyCode, playerId, currentWs) {
   for (const client of wss.clients) {
     if (client !== currentWs &&
-        client.readyState === 1 &&
-        clientLobbies.get(client) === lobbyCode &&
-        clientPlayerIds.get(client) === playerId) {
+      client.readyState === 1 &&
+      clientLobbies.get(client) === lobbyCode &&
+      clientPlayerIds.get(client) === playerId) {
       return true;
     }
   }
@@ -304,7 +304,7 @@ wss.on('connection', (ws) => {
         case 'create': {
           const { hostName, avatar } = payload;
           const code = generateLobbyCode();
-          
+
           const newGame = {
             lobbyCode: code,
             status: 'lobby',
@@ -470,7 +470,7 @@ wss.on('connection', (ws) => {
           for (let i = 0; i < botNames.length; i++) {
             if (botsAdded >= 5) break;
             if (game.players.length >= 10) break;
-            
+
             const botName = botNames[i];
             const botAvatar = botAvatars[i];
             const botId = `bot_${Math.random().toString(36).substr(2, 9)}`;
@@ -528,7 +528,7 @@ wss.on('connection', (ws) => {
                 game.playerIds.splice(idIndex, 1);
               }
               game.logs.push(`${name} از لابی خارج شد.`);
-              
+
               if (game.hostId === playerId) {
                 if (game.players.length > 0) {
                   game.hostId = game.players[0].id;
@@ -553,7 +553,7 @@ wss.on('connection', (ws) => {
           if (game) {
             clientLobbies.set(ws, lobbyCode);
             clientPlayerIds.set(ws, playerId);
-            
+
             const player = game.players.find(p => p.id === playerId);
             if (player && player.isDisconnected) {
               player.isDisconnected = false;
@@ -574,7 +574,7 @@ wss.on('connection', (ws) => {
         case 'update': {
           const { updates } = payload;
           const game = games[lobbyCode];
-          
+
           if (game) {
             const oldWinner = game.winner;
             const oldPhase = game.phase;
@@ -732,7 +732,7 @@ wss.on('connection', (ws) => {
             .sort({ 'stats.wins': -1 })
             .limit(10)
             .toArray();
-          
+
           ws.send(JSON.stringify({
             type: 'leaderboard',
             data: topUsers.map(u => ({
@@ -755,7 +755,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const lobbyCode = clientLobbies.get(ws);
     const playerId = clientPlayerIds.get(ws);
-    
+
     console.log(`Connection closed: Player ${playerId} from Lobby ${lobbyCode}`);
 
     clientLobbies.delete(ws);
@@ -790,7 +790,7 @@ wss.on('connection', (ws) => {
                       currentGame.playerIds.splice(idIndex, 1);
                     }
                     currentGame.logs.push(`${name} به دلیل قطع ارتباط از لابی خارج شد.`);
-                    
+
                     if (currentGame.hostId === playerId) {
                       if (currentGame.players.length > 0) {
                         currentGame.hostId = currentGame.players[0].id;
