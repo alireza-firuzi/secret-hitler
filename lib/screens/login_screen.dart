@@ -19,6 +19,19 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   String _selectedAvatar = 'avatar_1';
 
+  String _normalizeDigits(String input) {
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    String result = input;
+    for (int i = 0; i < 10; i++) {
+      result = result.replaceAll(persian[i], english[i]);
+      result = result.replaceAll(arabic[i], english[i]);
+    }
+    return result;
+  }
+
   final List<String> _funnyPersianNames = [
     'کارآگاه علوی',
     'رئیس‌جمهور موقت',
@@ -284,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
                 onPressed: () {
-                  final txt = phoneController.text.trim();
+                  final txt = _normalizeDigits(phoneController.text.trim());
                   if (txt.isNotEmpty) {
                     Navigator.pop(context, txt);
                   }
@@ -367,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
                 onPressed: () {
-                  final code = codeController.text.trim();
+                  final code = _normalizeDigits(codeController.text.trim());
                   if (code.length == 6) {
                     Navigator.pop(context, true);
                   }
@@ -386,7 +399,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    final success = await FirebaseManager.verifyOtp(phone, codeController.text.trim());
+    final success = await FirebaseManager.verifyOtp(phone, _normalizeDigits(codeController.text.trim()));
     if (success) {
       final rand = Random();
       final uid = 'otp_${phone.replaceAll('+', '')}';
