@@ -92,7 +92,11 @@ class _GameRouterState extends State<GameRouter> {
 
   void _quitToMenu() {
     setState(() {
-      _mode = AppMode.login;
+      if (FirebaseManager.currentUserProfile != null) {
+        _mode = AppMode.onlineSetup;
+      } else {
+        _mode = AppMode.login;
+      }
       _onlineEngine?.dispose();
       _onlineEngine = null;
       _lobbyCode = '';

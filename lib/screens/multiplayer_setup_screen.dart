@@ -100,23 +100,27 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
         takenAvatars = fetchedTaken;
       }
 
-      setState(() {
-        _isLoading = false;
-      });
+      final String playerId = FirebaseManager.currentUserProfile?['uid'] ?? 'guest_${RandomString.generate(6)}';
+      final isGuest = playerId.startsWith('guest_');
 
-      final selectedAvatar = await _showAvatarSelectionDialog(takenAvatars);
-      if (selectedAvatar == null) {
-        return;
-      }
+      String selectedAvatar = FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1';
 
-      setState(() {
-        _isLoading = true;
-      });
+      if (isGuest) {
+        setState(() {
+          _isLoading = false;
+        });
 
-      final String playerId = FirebaseManager.currentUserProfile?['uid'] ?? 'user_${RandomString.generate(6)}';
+        final avatarChoice = await _showAvatarSelectionDialog(takenAvatars);
+        if (avatarChoice == null) {
+          return;
+        }
+        selectedAvatar = avatarChoice;
 
-      // Update guest profile in DB if guest, so the name and avatar updates on the server/leaderboard too!
-      if (playerId.startsWith('guest_')) {
+        setState(() {
+          _isLoading = true;
+        });
+
+        // Update guest profile in DB if guest, so the name and avatar updates on the server/leaderboard too!
         await FirebaseManager.updateProfile(
           uid: playerId,
           displayName: name,
