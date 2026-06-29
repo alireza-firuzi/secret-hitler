@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -649,7 +648,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F0B0A),
+        backgroundColor: const Color(0xFF151211),
         body: Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
@@ -659,197 +658,126 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           child: Stack(
             children: [
-              // Cinematic radial vignette overlay
-              Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.4),
-                      Colors.black.withOpacity(0.85),
-                    ],
-                    radius: 1.2,
-                  ),
-                ),
-              ),
+              Container(color: Colors.black.withOpacity(0.6)), // Dark overlay
               Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                          decoration: BoxDecoration(
-                            color: const Color(0xCC1A1312),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: const Color(0xFFD4AF37).withOpacity(0.35),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.6),
-                                blurRadius: 30,
-                                spreadRadius: 10,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Breathing animated Monogram Wax Seal Logo
-                              TweenAnimationBuilder<double>(
-                                tween: Tween<double>(begin: 0.97, end: 1.03),
-                                duration: const Duration(seconds: 3),
-                                curve: Curves.easeInOut,
-                                builder: (context, scale, child) {
-                                  return Transform.scale(
-                                    scale: scale,
-                                    child: child,
-                                  );
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFC92A2A).withOpacity(0.25),
-                                        blurRadius: 15,
-                                        spreadRadius: 3,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Image.asset(
-                                    'assets/images/wax_seal.png',
-                                    width: 110,
-                                    height: 110,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              // Luxury Title
-                              Text(
-                                'راز هیتلر',
-                                style: TextStyle(
-                                  fontFamily: 'serif',
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFFC92A2A),
-                                  letterSpacing: 4,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(0.5),
-                                      offset: const Offset(2, 2),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'باشگاه آنلاین کارآگاهان و احراز هویت',
-                                style: TextStyle(
-                                  fontFamily: 'serif',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFFD4AF37).withOpacity(0.85),
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 36),
-
-                              if (_isLoading)
-                                const Center(
-                                  child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-                                )
-                              else ...[
-                                _buildSocialButton(
-                                  label: 'ورود امن با اکانت گوگل',
-                                  icon: Icons.g_mobiledata,
-                                  color: const Color(0xFF1E1B1A),
-                                  borderColor: const Color(0xFFDB4437).withOpacity(0.4),
-                                  onPressed: _handleGoogleLogin,
-                                  iconColor: const Color(0xFFDB4437),
-                                ),
-                                const SizedBox(height: 16),
-                                _buildSocialButton(
-                                  label: 'ورود سریع با شماره موبایل',
-                                  icon: Icons.phone_android_rounded,
-                                  color: const Color(0xFF1E1B1A),
-                                  borderColor: const Color(0xFFD4AF37).withOpacity(0.4),
-                                  onPressed: _handlePhoneLogin,
-                                  iconColor: const Color(0xFFD4AF37),
-                                ),
-                                const SizedBox(height: 24),
-                                const Divider(color: Colors.white10),
-                                const SizedBox(height: 12),
-                                // Guest Login Button
-                                TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white38,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  ),
-                                  onPressed: () async {
-                                    final rand = Random();
-                                    final guestId = 'guest_${rand.nextInt(900000) + 100000}';
-                                    final defaultAvatar = 'avatar_${rand.nextInt(12) + 1}';
-                                    
-                                    setState(() {
-                                      _isLoading = true;
-                                    });
-                                    
-                                    final profile = await FirebaseManager.loginUser(
-                                      uid: guestId,
-                                      displayName: 'کاربر مهمان',
-                                      photoUrl: defaultAvatar,
-                                    );
-                                    
-                                    if (mounted) {
-                                      setState(() {
-                                        _isLoading = false;
-                                      });
-                                    }
-                                    
-                                    if (profile != null) {
-                                      widget.onLoginSuccess();
-                                    } else {
-                                      FirebaseManager.currentUserProfile = {
-                                        'uid': guestId,
-                                        'displayName': 'کاربر مهمان',
-                                        'photoUrl': defaultAvatar,
-                                        'stats': {
-                                          'gamesPlayed': 0,
-                                          'wins': 0,
-                                          'losses': 0,
-                                          'roles': {'Liberal': 0, 'Fascist': 0, 'Secret Hitler': 0}
-                                        }
-                                      };
-                                      widget.onLoginSuccess();
-                                    }
-                                  },
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(Icons.person_outline_rounded, size: 18),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'ورود مستقیم به عنوان مهمان',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          fontFamily: 'serif',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: const Color(0xE6251E1C),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFD4AF37).withOpacity(0.4),
+                          width: 2.0,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Wax Seal decoration
+                          Image.asset(
+                            'assets/images/wax_seal.png',
+                            width: 100,
+                            height: 100,
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'راز هیتلر',
+                            style: TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC92A2A),
+                              letterSpacing: 4,
+                            ),
+                          ),
+                          const Text(
+                            'سیستم پروفایل و آمار بازیکنان',
+                            style: TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 14,
+                              color: Color(0xFFD4AF37),
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+
+                          if (_isLoading)
+                            const CircularProgressIndicator(color: Color(0xFFD4AF37))
+                          else ...[
+                             _buildSocialButton(
+                              label: 'ورود با اکانت گوگل',
+                              icon: Icons.g_mobiledata,
+                              color: const Color(0xFFDB4437),
+                              onPressed: _handleGoogleLogin,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildSocialButton(
+                              label: 'ورود با شماره موبایل (OTP)',
+                              icon: Icons.phone_android,
+                              color: const Color(0xFF2E7D32),
+                              onPressed: _handlePhoneLogin,
+                            ),
+                            const SizedBox(height: 16),
+                            // Guest Login Button
+                            TextButton.icon(
+                              onPressed: () async {
+                                final rand = Random();
+                                final guestId = 'guest_${rand.nextInt(900000) + 100000}';
+                                final defaultAvatar = 'avatar_${rand.nextInt(12) + 1}';
+                                
+                                setState(() {
+                                  _isLoading = true;
+                                });
+                                
+                                final profile = await FirebaseManager.loginUser(
+                                  uid: guestId,
+                                  displayName: 'کاربر مهمان',
+                                  photoUrl: defaultAvatar,
+                                );
+                                
+                                if (mounted) {
+                                  setState(() {
+                                    _isLoading = false;
+                                  });
+                                }
+                                
+                                if (profile != null) {
+                                  widget.onLoginSuccess();
+                                } else {
+                                  // Fallback to local profile if server connection failed/timed out
+                                  FirebaseManager.currentUserProfile = {
+                                    'uid': guestId,
+                                    'displayName': 'کاربر مهمان',
+                                    'photoUrl': defaultAvatar,
+                                    'stats': {
+                                      'gamesPlayed': 0,
+                                      'wins': 0,
+                                      'losses': 0,
+                                      'roles': {'Liberal': 0, 'Fascist': 0, 'Secret Hitler': 0}
+                                    }
+                                  };
+                                  widget.onLoginSuccess();
+                                }
+                              },
+                              icon: const Icon(Icons.person_outline, color: Colors.white54),
+                              label: const Text(
+                                'ورود به عنوان مهمان',
+                                style: TextStyle(color: Colors.white54, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -866,41 +794,26 @@ class _LoginScreenState extends State<LoginScreen> {
     required String label,
     required IconData icon,
     required Color color,
-    required Color borderColor,
     required VoidCallback onPressed,
-    required Color iconColor,
   }) {
     return SizedBox(
       width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
+      height: 52,
+      child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
-          elevation: 2,
-          shadowColor: Colors.black45,
+          elevation: 3,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.white10, width: 1),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
         ),
         onPressed: onPressed,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 26, color: iconColor),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'serif',
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
+        icon: Icon(icon, size: 28),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
       ),
     );
