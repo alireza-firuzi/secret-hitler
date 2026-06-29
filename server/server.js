@@ -103,13 +103,25 @@ const PORT = process.env.PORT || 3000;
 // Memory store for active OTP codes (expires in 5 minutes)
 const activeOtps = new Map();
 
+function normalizeDigits(input) {
+  if (!input) return '';
+  const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  let result = input.toString();
+  for (let i = 0; i < 10; i++) {
+    result = result.replace(new RegExp(persian[i], 'g'), i.toString());
+    result = result.replace(new RegExp(arabic[i], 'g'), i.toString());
+  }
+  return result;
+}
+
 // Create HTTP Server
 const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   // Handle OTP Send
   if (urlObj.pathname === '/api/otp/send') {
-    const phone = urlObj.searchParams.get('phone');
+    const phone = normalizeDigits(urlObj.searchParams.get('phone'));
     if (!phone) {
       res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ error: 'Phone number is required' }));
@@ -146,8 +158,8 @@ const server = http.createServer(async (req, res) => {
 
   // Handle OTP Verification
   if (urlObj.pathname === '/api/otp/verify') {
-    const phone = urlObj.searchParams.get('phone');
-    const code = urlObj.searchParams.get('code');
+    const phone = normalizeDigits(urlObj.searchParams.get('phone'));
+    const code = normalizeDigits(urlObj.searchParams.get('code'));
     if (!phone || !code) {
       res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ error: 'Phone number and code are required' }));
@@ -472,6 +484,14 @@ wss.on('connection', (ws) => {
   ws.on('message', async (message) => {
     try {
       const payload = JSON.parse(message);
+      
+      // Normalize Persian/Arabic digits in incoming IDs
+      if (payload.playerId) payload.playerId = normalizeDigits(payload.playerId);
+      if (payload.uid) payload.uid = normalizeDigits(payload.uid);
+      if (payload.recipientId) payload.recipientId = normalizeDigits(payload.recipientId);
+      if (payload.requesterId) payload.requesterId = normalizeDigits(payload.requesterId);
+      if (payload.friendId) payload.friendId = normalizeDigits(payload.friendId);
+
       const { action, lobbyCode, playerId } = payload;
 
       console.log(`Action received: ${action} | Player: ${playerId} | Lobby: ${lobbyCode}`);
