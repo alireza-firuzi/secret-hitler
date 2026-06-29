@@ -355,164 +355,166 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
               Positioned(
                 top: 50,
                 left: 20,
-                child: Row(
-                  children: [
-                    // Friends/Social button (only for registered users, guests do not have friends)
-                    if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
-                      Builder(
-                        builder: (context) => InkWell(
-                          onTap: () {
-                            Scaffold.of(context).openEndDrawer();
-                          },
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xE6251E1C),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.people_outline_rounded, color: Color(0xFFD4AF37), size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'دوستان',
-                                  style: TextStyle(
-                                    color: Color(0xFFE6DFD3),
-                                    fontFamily: 'serif',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                child: MediaQuery.of(context).size.width < 600
+                    ? _buildMobileMenu(context)
+                    : Row(
+                        children: [
+                          // Friends/Social button (only for registered users, guests do not have friends)
+                          if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
+                            Builder(
+                              builder: (context) => InkWell(
+                                onTap: () {
+                                  Scaffold.of(context).openEndDrawer();
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xE6251E1C),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.people_outline_rounded, color: Color(0xFFD4AF37), size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'دوستان',
+                                        style: TextStyle(
+                                          color: Color(0xFFE6DFD3),
+                                          fontFamily: 'serif',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    // Profile button (only for registered users, guests do not have a profile)
-                    if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                          ).then((_) {
-                            // Update UI in case username or avatar changed
-                            if (mounted) {
-                              setState(() {
-                                if (FirebaseManager.currentUserProfile != null) {
-                                  _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
-                                }
-                              });
-                            }
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xE6251E1C),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              buildAvatarCircle(
-                                FirebaseManager.currentUserProfile?['photoUrl'],
-                                radius: 10,
                               ),
-                              const SizedBox(width: 6),
-                              const Text(
-                                'پروفایل من',
-                                style: TextStyle(
-                                  color: Color(0xFFE6DFD3),
-                                  fontFamily: 'serif',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          // Profile button (only for registered users, guests do not have a profile)
+                          if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                                ).then((_) {
+                                  // Update UI in case username or avatar changed
+                                  if (mounted) {
+                                    setState(() {
+                                      if (FirebaseManager.currentUserProfile != null) {
+                                        _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
+                                      }
+                                    });
+                                  }
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xE6251E1C),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    buildAvatarCircle(
+                                      FirebaseManager.currentUserProfile?['photoUrl'],
+                                      radius: 10,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'پروفایل من',
+                                      style: TextStyle(
+                                        color: Color(0xFFE6DFD3),
+                                        fontFamily: 'serif',
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          // Leaderboard button
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xE6251E1C),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.emoji_events, color: Color(0xFFD4AF37), size: 16),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'لیدربورد',
+                                    style: TextStyle(
+                                      color: Color(0xFFE6DFD3),
+                                      fontFamily: 'serif',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    // Leaderboard button
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xE6251E1C),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.emoji_events, color: Color(0xFFD4AF37), size: 16),
-                            SizedBox(width: 6),
-                            Text(
-                              'لیدربورد',
-                              style: TextStyle(
-                                color: Color(0xFFE6DFD3),
-                                fontFamily: 'serif',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                          const SizedBox(width: 8),
+                          // Tutorial button
+                          InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const TutorialScreen()),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xE6251E1C),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 16),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'آموزش بازی',
+                                    style: TextStyle(
+                                      color: Color(0xFFE6DFD3),
+                                      fontFamily: 'serif',
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Tutorial button
-                    InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const TutorialScreen()),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xE6251E1C),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 16),
-                            SizedBox(width: 6),
-                            Text(
-                              'آموزش بازی',
-                              style: TextStyle(
-                                color: Color(0xFFE6DFD3),
-                                fontFamily: 'serif',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               Positioned(
                 top: 50,
@@ -827,6 +829,108 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildMobileMenu(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        cardColor: const Color(0xFF2C2523),
+      ),
+      child: PopupMenuButton<String>(
+        offset: const Offset(0, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+        ),
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xE6251E1C),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+          ),
+          child: const Icon(Icons.more_vert, color: Color(0xFFD4AF37)),
+        ),
+        onSelected: (value) {
+          switch (value) {
+            case 'friends':
+              Scaffold.of(context).openEndDrawer();
+              break;
+            case 'profile':
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ).then((_) {
+                if (mounted && FirebaseManager.currentUserProfile != null) {
+                  setState(() {
+                    _nameController.text = FirebaseManager.currentUserProfile!['displayName'] ?? '';
+                  });
+                }
+              });
+              break;
+            case 'leaderboard':
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+              );
+              break;
+            case 'tutorial':
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TutorialScreen()),
+              );
+              break;
+          }
+        },
+        itemBuilder: (context) {
+          final isGuest = (FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_');
+          return [
+            if (!isGuest)
+              const PopupMenuItem<String>(
+                value: 'friends',
+                child: Row(
+                  children: [
+                    Icon(Icons.people_outline_rounded, color: Color(0xFFD4AF37), size: 20),
+                    SizedBox(width: 10),
+                    Text('دوستان', style: TextStyle(color: Color(0xFFE6DFD3), fontFamily: 'serif')),
+                  ],
+                ),
+              ),
+            if (!isGuest)
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline_rounded, color: Color(0xFFD4AF37), size: 20),
+                    SizedBox(width: 10),
+                    Text('پروفایل من', style: TextStyle(color: Color(0xFFE6DFD3), fontFamily: 'serif')),
+                  ],
+                ),
+              ),
+            const PopupMenuItem<String>(
+              value: 'leaderboard',
+              child: Row(
+                children: [
+                  Icon(Icons.emoji_events, color: Color(0xFFD4AF37), size: 20),
+                  SizedBox(width: 10),
+                  Text('لیدربورد', style: TextStyle(color: Color(0xFFE6DFD3), fontFamily: 'serif')),
+                ],
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'tutorial',
+              child: Row(
+                children: [
+                  Icon(Icons.help_outline, color: Color(0xFFD4AF37), size: 20),
+                  SizedBox(width: 10),
+                  Text('آموزش بازی', style: TextStyle(color: Color(0xFFE6DFD3), fontFamily: 'serif')),
+                ],
+              ),
+            ),
+          ];
+        },
       ),
     );
   }
