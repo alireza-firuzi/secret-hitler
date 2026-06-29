@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import '../logic/firebase_manager.dart';
+import '../widgets/avatar_helper.dart';
 import 'tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'leaderboard_screen.dart';
@@ -379,12 +380,9 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              CircleAvatar(
+                              buildAvatarCircle(
+                                FirebaseManager.currentUserProfile?['photoUrl'],
                                 radius: 10,
-                                backgroundColor: const Color(0xFF151211),
-                                backgroundImage: AssetImage(
-                                  'assets/images/${FirebaseManager.currentUserProfile?['photoUrl'] ?? 'avatar_1'}.png',
-                                ),
                               ),
                               const SizedBox(width: 6),
                               const Text(

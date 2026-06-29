@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../logic/firebase_manager.dart';
+import '../widgets/avatar_helper.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -181,11 +182,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               const SizedBox(width: 8),
 
               // Avatar
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: const Color(0xFF151211),
-                backgroundImage: AssetImage('assets/images/$avatar.png'),
-              ),
+              buildAvatarCircle(avatar, radius: 24),
               const SizedBox(width: 16),
 
               // Name

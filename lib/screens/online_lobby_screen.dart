@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../logic/online_game_engine.dart';
+import '../widgets/avatar_helper.dart';
 
 class OnlineLobbyScreen extends StatelessWidget {
   final OnlineGameEngine engine;
@@ -178,8 +179,8 @@ class OnlineLobbyScreen extends StatelessWidget {
                             const SizedBox(width: 12),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(15),
-                              child: Image.asset(
-                                'assets/images/${player['avatar'] ?? 'avatar_1'}.png',
+                              child: Image(
+                                image: getAvatarImage(player['avatar']),
                                 width: 30,
                                 height: 30,
                                 fit: BoxFit.cover,

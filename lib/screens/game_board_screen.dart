@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../logic/game_engine.dart';
+import '../widgets/avatar_helper.dart';
 import '../logic/sound_manager.dart';
 import '../models/game_state.dart';
 import '../widgets/board_widgets.dart';
@@ -1082,8 +1083,8 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(25),
-            child: Image.asset(
-              'assets/images/$avatar.png',
+            child: Image(
+              image: getAvatarImage(avatar),
               width: 50,
               height: 50,
               fit: BoxFit.cover,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:html' as html;
 import '../logic/firebase_manager.dart';
+import '../widgets/avatar_helper.dart';
+import '../widgets/image_cropper_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -226,10 +229,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Stack(
               alignment: Alignment.bottomRight,
               children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: const Color(0xFF151211),
-                  backgroundImage: AssetImage('assets/images/$_photoUrl.png'),
+                buildAvatarCircle(
+                  _photoUrl,
+                  radius: 56,
                 ),
                 Container(
                   padding: const EdgeInsets.all(4),
@@ -366,6 +368,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _pickAndCropImage() {
+    final uploadInput = html.FileUploadInputElement()..accept = 'image/*';
+    uploadInput.click();
+    uploadInput.onChange.listen((e) {
+      final files = uploadInput.files;
+      if (files != null && files.isNotEmpty) {
+        final file = files[0];
+        
+        // Limit size to max 8 MB
+        if (file.size > 8 * 1024 * 1024) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('حجم فایل انتخاب شده بسیار زیاد است. حداکثر حجم مجاز ۸ مگابایت می‌باشد.', style: TextStyle(fontFamily: 'serif')),
+              backgroundColor: Color(0xFF9E2A2B),
+            ),
+          );
+          return;
+        }
+
+        final reader = html.FileReader();
+        reader.readAsDataUrl(file);
+        reader.onLoadEnd.listen((e) async {
+          final base64Data = reader.result as String;
+          if (!mounted) return;
+
+          // Open cropper dialog
+          final croppedResult = await showDialog<String>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ImageCropperDialog(imageBase64: base64Data),
+          );
+
+          if (croppedResult != null) {
+            await _updateAvatar(croppedResult);
+          }
+        });
+      }
+    });
+  }
+
   void _showAvatarSelectionDialog() {
     showDialog(
       context: context,
@@ -375,30 +417,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: AlertDialog(
             backgroundColor: const Color(0xFF2C2523),
             title: const Text('تغییر تصویر پروفایل', style: TextStyle(color: Color(0xFFD4AF37), fontFamily: 'serif')),
-            content: SizedBox(
-              width: 320,
-              height: 240,
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemCount: 12,
-                itemBuilder: (context, index) {
-                  final avatarName = 'avatar_${index + 1}';
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _updateAvatar(avatarName);
-                    },
-                    child: CircleAvatar(
-                      backgroundColor: const Color(0xFF151211),
-                      backgroundImage: AssetImage('assets/images/$avatarName.png'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 320,
+                  height: 180,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
                     ),
-                  );
-                },
-              ),
+                    itemCount: 12,
+                    itemBuilder: (context, index) {
+                      final avatarName = 'avatar_${index + 1}';
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _updateAvatar(avatarName);
+                        },
+                        child: CircleAvatar(
+                          backgroundColor: const Color(0xFF151211),
+                          backgroundImage: AssetImage('assets/images/$avatarName.png'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4AF37),
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size(double.infinity, 44),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.cloud_upload),
+                  label: const Text('آپلود تصویر دلخواه', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'serif')),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _pickAndCropImage();
+                  },
+                ),
+              ],
             ),
           ),
         );

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../logic/online_game_engine.dart';
+import '../widgets/avatar_helper.dart';
 import '../logic/sound_manager.dart';
 import '../models/game_state.dart';
 import '../widgets/board_widgets.dart';
@@ -1490,8 +1491,8 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(
-                    'assets/images/${speaker['avatar'] ?? 'avatar_1'}.png',
+                  child: Image(
+                    image: getAvatarImage(speaker['avatar']),
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,
@@ -1617,8 +1618,8 @@ class _OnlineGameBoardScreenState extends State<OnlineGameBoardScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(25),
-            child: Image.asset(
-              'assets/images/$avatar.png',
+            child: Image(
+              image: getAvatarImage(avatar),
               width: 50,
               height: 50,
               fit: BoxFit.cover,

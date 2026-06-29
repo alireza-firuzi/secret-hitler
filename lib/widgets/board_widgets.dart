@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/avatar_helper.dart';
 import '../models/game_state.dart';
 
 class PolicyTrackWidget extends StatelessWidget {
@@ -379,8 +380,8 @@ class PlayerSlotWidget extends StatelessWidget {
               opacity: player.isAlive ? 1.0 : 0.4,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(22),
-                child: Image.asset(
-                  'assets/images/${player.avatar}.png',
+                child: Image(
+                  image: getAvatarImage(player.avatar),
                   width: 44,
                   height: 44,
                   fit: BoxFit.cover,
