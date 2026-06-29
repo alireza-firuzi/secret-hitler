@@ -63,6 +63,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (newName != null && newName.isNotEmpty && newName != _displayName) {
+      final allowedDisplayName = RegExp(r'^[\u0600-\u06FF\u200C\s0-9]+$');
+      final letterRegex = RegExp(r'[\u0622-\u0628\u062A-\u063A\u0641-\u0642\u0644-\u0648\u067E\u0686\u0698\u06A9\u06AF\u06CC]');
+      if (!allowedDisplayName.hasMatch(newName) || !letterRegex.hasMatch(newName)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('نام درون بازی باید فقط شامل حروف فارسی باشد', style: TextStyle(fontFamily: 'serif')),
+            backgroundColor: Color(0xFF9E2A2B),
+          ),
+        );
+        return;
+      }
+      
       setState(() {
         _displayName = newName;
       });
@@ -197,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileCard() {
+    final profile = FirebaseManager.currentUserProfile ?? {};
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -244,6 +257,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+                if (profile['username'] != null && (profile['username'] as String).isNotEmpty) ...[
+                  Text(
+                    '@${profile['username']}',
+                    style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 14, fontFamily: 'serif'),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text(
                   (FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')
                       ? 'بازیکن مهمان'

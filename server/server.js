@@ -52,7 +52,7 @@ function sendIppanelSms(phone, code) {
   });
 }
 
-function validateUsername(username) {
+function validateEnglishUsername(username) {
   if (!username || typeof username !== 'string') {
     return { valid: false, error: 'نام کاربری نامعتبر است' };
   }
@@ -60,20 +60,39 @@ function validateUsername(username) {
   if (trimmed.length < 3) {
     return { valid: false, error: 'نام کاربری باید حداقل ۳ کاراکتر باشد' };
   }
-  if (trimmed.length > 20) {
-    return { valid: false, error: 'نام کاربری حداکثر می‌تواند ۲۰ کاراکتر باشد' };
+  if (trimmed.length > 15) {
+    return { valid: false, error: 'نام کاربری حداکثر می‌تواند ۱۵ کاراکتر باشد' };
   }
   
-  // Regex for Persian letters, spaces, and numbers (both English and Persian digits)
+  // Alphanumeric and underscore only
+  const allowedChars = /^[a-zA-Z0-9_]+$/;
+  if (!allowedChars.test(trimmed)) {
+    return { valid: false, error: 'نام کاربری فقط می‌تواند شامل حروف انگلیسی، عدد و خط تیره زیرین (_) باشد' };
+  }
+  
+  return { valid: true, trimmed };
+}
+
+function validatePersianDisplayName(displayName) {
+  if (!displayName || typeof displayName !== 'string') {
+    return { valid: false, error: 'نام درون بازی نامعتبر است' };
+  }
+  const trimmed = displayName.trim();
+  if (trimmed.length < 3) {
+    return { valid: false, error: 'نام درون بازی باید حداقل ۳ کاراکتر باشد' };
+  }
+  if (trimmed.length > 20) {
+    return { valid: false, error: 'نام درون بازی حداکثر می‌تواند ۲۰ کاراکتر باشد' };
+  }
+  
   const allowedChars = /^[\u0600-\u06FF\u200C\s0-9]+$/;
   if (!allowedChars.test(trimmed)) {
-    return { valid: false, error: 'نام کاربری فقط می‌تواند شامل حروف فارسی و عدد باشد' };
+    return { valid: false, error: 'نام درون بازی فقط می‌تواند شامل حروف فارسی و عدد باشد' };
   }
   
-  // Must contain at least one Persian letter (not just numbers/spaces)
   const letterRegex = /[\u0622-\u0628\u062A-\u063A\u0641-\u0642\u0644-\u0648\u067E\u0686\u0698\u06A9\u06AF\u06CC]/;
   if (!letterRegex.test(trimmed)) {
-    return { valid: false, error: 'نام کاربری باید شامل حروف فارسی باشد' };
+    return { valid: false, error: 'نام درون بازی باید شامل حروف فارسی باشد' };
   }
   
   return { valid: true, trimmed };
@@ -843,9 +862,9 @@ wss.on('connection', (ws) => {
             user = {
               uid,
               displayName,
-              email: email || '',
+              username: '', // Initially empty, chosen during setup
               photoUrl: photoUrl || 'avatar_1',
-              needsUsername: !isGuest,
+              needsSetup: !isGuest,
               stats: {
                 gamesPlayed: 0,
                 wins: 0,
@@ -862,52 +881,72 @@ wss.on('connection', (ws) => {
           break;
         }
 
-        case 'setUsername': {
-          const { uid, username } = payload;
+        case 'setupProfile': {
+          const { uid, username, displayName, photoUrl } = payload;
           if (!usersCollection) {
             ws.send(JSON.stringify({
-              type: 'setUsernameResult',
+              type: 'setupProfileResult',
               success: false,
               error: 'دیتابیس در دسترس نیست'
             }));
             break;
           }
           
-          const validation = validateUsername(username);
-          if (!validation.valid) {
+          // 1. Validate Username (English letters + numbers)
+          const usernameValidation = validateEnglishUsername(username);
+          if (!usernameValidation.valid) {
             ws.send(JSON.stringify({
-              type: 'setUsernameResult',
+              type: 'setupProfileResult',
               success: false,
-              error: validation.error
+              error: usernameValidation.error
             }));
             break;
           }
-          
-          const cleanUsername = validation.trimmed;
+          const cleanUsername = usernameValidation.trimmed;
 
-          // Case-insensitive duplicate check in MongoDB
+          // 2. Validate Display Name (Persian)
+          const displayNameValidation = validatePersianDisplayName(displayName);
+          if (!displayNameValidation.valid) {
+            ws.send(JSON.stringify({
+              type: 'setupProfileResult',
+              success: false,
+              error: displayNameValidation.error
+            }));
+            break;
+          }
+          const cleanDisplayName = displayNameValidation.trimmed;
+
+          // 3. Unique Username validation (case-insensitive check in DB)
           const existingUser = await usersCollection.findOne({ 
-            displayName: { $regex: new RegExp(`^${cleanUsername.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } 
+            username: { $regex: new RegExp(`^${cleanUsername.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') } 
           });
           
           if (existingUser && existingUser.uid !== uid) {
             ws.send(JSON.stringify({
-              type: 'setUsernameResult',
+              type: 'setupProfileResult',
               success: false,
               error: 'این نام کاربری قبلاً انتخاب شده است'
             }));
             break;
           }
 
+          // 4. Update DB
           await usersCollection.updateOne(
             { uid },
-            { $set: { displayName: cleanUsername, needsUsername: false } }
+            { $set: { 
+                username: cleanUsername, 
+                displayName: cleanDisplayName, 
+                photoUrl: photoUrl || 'avatar_1',
+                needsSetup: false,
+                needsUsername: false // Safety clearing of legacy flag
+              } 
+            }
           );
 
           const updatedUser = await usersCollection.findOne({ uid });
           
           ws.send(JSON.stringify({
-            type: 'setUsernameResult',
+            type: 'setupProfileResult',
             success: true,
             data: updatedUser
           }));

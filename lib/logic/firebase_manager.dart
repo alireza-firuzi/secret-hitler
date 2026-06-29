@@ -19,7 +19,7 @@ class FirebaseManager {
   static final Map<String, Completer<Map<String, dynamic>?>> _privateRoleCompleters = {};
   static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
   static final Map<String, Completer<Map<String, dynamic>?>> _loginCompleters = {};
-  static final Map<String, Completer<Map<String, dynamic>>> _setUsernameCompleters = {};
+  static final Map<String, Completer<Map<String, dynamic>>> _setupProfileCompleters = {};
   static Completer<List<dynamic>?>? _leaderboardCompleter;
   static Map<String, dynamic>? currentUserProfile;
 
@@ -140,10 +140,10 @@ class FirebaseManager {
               if (completer != null && !completer.isCompleted) {
                 completer.complete(data);
               }
-            } else if (type == 'setUsernameResult') {
+            } else if (type == 'setupProfileResult') {
               final uid = payload['data']?['uid'] ?? payload['uid'] ?? '';
-              final key = 'username_$uid';
-              final completer = _setUsernameCompleters.remove(key);
+              final key = 'setup_$uid';
+              final completer = _setupProfileCompleters.remove(key);
               if (completer != null && !completer.isCompleted) {
                 completer.complete(Map<String, dynamic>.from(payload));
               }
@@ -516,25 +516,29 @@ class FirebaseManager {
     return result;
   }
 
-  // Submit custom unique username
-  static Future<Map<String, dynamic>> setUsername({
+  // Submit custom unique username and game display name
+  static Future<Map<String, dynamic>> setupProfile({
     required String uid,
     required String username,
+    required String displayName,
+    required String photoUrl,
   }) async {
-    final key = 'username_$uid';
+    final key = 'setup_$uid';
     final completer = Completer<Map<String, dynamic>>();
-    _setUsernameCompleters[key] = completer;
+    _setupProfileCompleters[key] = completer;
 
     _channel!.sink.add(jsonEncode({
-      'action': 'setUsername',
+      'action': 'setupProfile',
       'uid': uid,
       'username': username,
+      'displayName': displayName,
+      'photoUrl': photoUrl,
     }));
 
     // 10s timeout
     final timer = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
-        _setUsernameCompleters.remove(key);
+        _setupProfileCompleters.remove(key);
         completer.complete({
           'success': false,
           'error': 'زمان پاسخ‌دهی سرور به پایان رسید'

@@ -190,13 +190,30 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
               // Name
               Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (player['username'] != null && (player['username'] as String).isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '@${player['username']}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFD4AF37),
+                          fontFamily: 'serif',
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
 

@@ -227,8 +227,8 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (profile != null) {
-          final isUsernameOk = await _checkAndPromptUsername();
-          if (isUsernameOk) {
+          final isSetupOk = await _checkAndPromptSetup();
+          if (isSetupOk) {
             widget.onLoginSuccess();
           }
         } else {
@@ -405,8 +405,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (profile != null) {
-        final isUsernameOk = await _checkAndPromptUsername();
-        if (isUsernameOk) {
+        final isSetupOk = await _checkAndPromptSetup();
+        if (isSetupOk) {
           widget.onLoginSuccess();
         }
       } else {
@@ -420,15 +420,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<bool> _checkAndPromptUsername() async {
+  Future<bool> _checkAndPromptSetup() async {
     final profile = FirebaseManager.currentUserProfile;
     if (profile == null) return false;
     
-    if (profile['needsUsername'] != true) {
+    if (profile['needsSetup'] != true && profile['needsUsername'] != true) {
       return true;
     }
     
     final usernameController = TextEditingController();
+    final displayNameController = TextEditingController();
+    String selectedAvatar = 'avatar_1';
     String? errorMessage;
     bool dialogLoading = false;
     
@@ -447,35 +449,96 @@ class _LoginScreenState extends State<LoginScreen> {
                   side: const BorderSide(color: Colors.white10),
                 ),
                 title: const Text(
-                  'انتخاب نام کاربری',
+                  'تنظیمات نهایی حساب کاربری',
                   style: TextStyle(
                     fontFamily: 'serif',
                     color: Color(0xFFD4AF37),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'برای اولین ورود، لطفاً نام کاربری خود را به زبان فارسی (یا فارسی به همراه عدد) انتخاب کنید. این نام کاربری نباید تکراری باشد.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'serif'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: usernameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'نام کاربری فارسی...',
-                        hintStyle: const TextStyle(color: Colors.white24),
-                        errorText: errorMessage,
-                        errorMaxLines: 2,
-                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'انتخاب تصویر نمایه (آواتار):',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'serif'),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 60,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: 12,
+                          itemBuilder: (context, index) {
+                            final avatarName = 'avatar_${index + 1}';
+                            final isSelected = selectedAvatar == avatarName;
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedAvatar = avatarName;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFFD4AF37) : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: const Color(0xFF151211),
+                                  backgroundImage: AssetImage('assets/images/$avatarName.png'),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'نام کاربری (حروف انگلیسی و عدد - یکتا):',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'serif'),
+                      ),
+                      TextField(
+                        controller: usernameController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          hintText: 'مثال: secret_agent_99',
+                          hintStyle: TextStyle(color: Colors.white24, fontSize: 12),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'نام درون بازی (حتماً زبان فارسی):',
+                        style: TextStyle(color: Colors.white70, fontSize: 13, fontFamily: 'serif'),
+                      ),
+                      TextField(
+                        controller: displayNameController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          hintText: 'مثال: کارآگاه علوی',
+                          hintStyle: TextStyle(color: Colors.white24, fontSize: 12),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFD4AF37))),
+                        ),
+                      ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          errorMessage!,
+                          style: const TextStyle(color: Color(0xFF9E2A2B), fontSize: 12, fontFamily: 'serif'),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 actions: [
                   TextButton(
@@ -488,23 +551,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)),
                     onPressed: dialogLoading ? null : () async {
-                      final input = usernameController.text.trim();
-                      if (input.isEmpty) {
+                      final username = usernameController.text.trim();
+                      final displayName = displayNameController.text.trim();
+                      
+                      if (username.isEmpty || displayName.isEmpty) {
                         setDialogState(() {
-                          errorMessage = 'نام کاربری نمی‌تواند خالی باشد';
+                          errorMessage = 'لطفاً تمامی فیلدها را پر کنید';
                         });
                         return;
                       }
                       
+                      final allowedUsername = RegExp(r'^[a-zA-Z0-9_]+$');
+                      if (!allowedUsername.hasMatch(username)) {
+                        setDialogState(() {
+                          errorMessage = 'نام کاربری فقط می‌تواند شامل حروف انگلیسی، عدد و (_) باشد';
+                        });
+                        return;
+                      }
+
+                      final allowedDisplayName = RegExp(r'^[\u0600-\u06FF\u200C\s0-9]+$');
+                      final letterRegex = RegExp(r'[\u0622-\u0628\u062A-\u063A\u0641-\u0642\u0644-\u0648\u067E\u0686\u0698\u06A9\u06AF\u06CC]');
+                      if (!allowedDisplayName.hasMatch(displayName) || !letterRegex.hasMatch(displayName)) {
+                        setDialogState(() {
+                          errorMessage = 'نام درون بازی باید فقط شامل حروف فارسی باشد';
+                        });
+                        return;
+                      }
+
                       setDialogState(() {
                         dialogLoading = true;
                         errorMessage = null;
                       });
                       
                       try {
-                        final result = await FirebaseManager.setUsername(
+                        final result = await FirebaseManager.setupProfile(
                           uid: profile['uid'],
-                          username: input,
+                          username: username,
+                          displayName: displayName,
+                          photoUrl: selectedAvatar,
                         );
                         
                         if (result['success'] == true) {
@@ -515,7 +599,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (context.mounted) {
                             setDialogState(() {
                               dialogLoading = false;
-                              errorMessage = result['error'] ?? 'خطا در ثبت نام کاربری';
+                              errorMessage = result['error'] ?? 'خطا در ثبت اطلاعات';
                             });
                           }
                         }
