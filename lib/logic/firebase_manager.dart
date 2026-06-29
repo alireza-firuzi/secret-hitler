@@ -20,8 +20,15 @@ class FirebaseManager {
   static final Map<String, Completer<List<String>?>> _checkLobbyCompleters = {};
   static final Map<String, Completer<Map<String, dynamic>?>> _loginCompleters = {};
   static final Map<String, Completer<Map<String, dynamic>>> _setupProfileCompleters = {};
+  static final Map<String, Completer<List<dynamic>>> _dmHistoryCompleters = {};
   static Completer<List<dynamic>?>? _leaderboardCompleter;
   static Map<String, dynamic>? currentUserProfile;
+
+  static final StreamController<List<dynamic>> _friendsStreamController = StreamController<List<dynamic>>.broadcast();
+  static Stream<List<dynamic>> get friendsStream => _friendsStreamController.stream;
+
+  static final StreamController<Map<String, dynamic>> _directMessageStreamController = StreamController<Map<String, dynamic>>.broadcast();
+  static Stream<Map<String, dynamic>> get directMessageStream => _directMessageStreamController.stream;
 
   static String? _activeLobbyCode;
   static String? _activePlayerId;
@@ -152,6 +159,19 @@ class FirebaseManager {
               final completer = _leaderboardCompleter;
               if (completer != null && !completer.isCompleted) {
                 _leaderboardCompleter = null;
+                completer.complete(list);
+              }
+            } else if (type == 'friendsList') {
+              final list = payload['data'] as List<dynamic>? ?? [];
+              _friendsStreamController.add(list);
+            } else if (type == 'directMessage') {
+              final data = payload['data'] as Map<String, dynamic>? ?? {};
+              _directMessageStreamController.add(data);
+            } else if (type == 'directMessageHistory') {
+              final friendId = payload['friendId'] ?? '';
+              final list = payload['data'] as List<dynamic>? ?? [];
+              final completer = _dmHistoryCompleters.remove(friendId);
+              if (completer != null && !completer.isCompleted) {
                 completer.complete(list);
               }
             }
@@ -589,5 +609,73 @@ class FirebaseManager {
       'action': 'addBots',
       'lobbyCode': lobbyCode,
     }));
+  }
+
+  // Request friends list for the current player
+  static void getFriends() {
+    final playerId = currentUserProfile?['uid'] ?? '';
+    if (playerId.isNotEmpty && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'action': 'getFriends',
+        'playerId': playerId,
+      }));
+    }
+  }
+
+  // Send a friend request to a user by username
+  static void sendFriendRequest(String targetUsername) {
+    final playerId = currentUserProfile?['uid'] ?? '';
+    if (playerId.isNotEmpty && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'action': 'sendFriendRequest',
+        'playerId': playerId,
+        'targetUsername': targetUsername,
+      }));
+    }
+  }
+
+  // Respond to a pending friend request
+  static void respondFriendRequest(String requesterId, bool accept) {
+    final playerId = currentUserProfile?['uid'] ?? '';
+    if (playerId.isNotEmpty && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'action': 'respondFriendRequest',
+        'playerId': playerId,
+        'requesterId': requesterId,
+        'accept': accept,
+      }));
+    }
+  }
+
+  // Fetch DM message history with a friend
+  static Future<List<dynamic>> getDirectMessages(String friendId) async {
+    final completer = Completer<List<dynamic>>();
+    _dmHistoryCompleters[friendId] = completer;
+
+    final playerId = currentUserProfile?['uid'] ?? '';
+    if (playerId.isNotEmpty && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'action': 'getDirectMessages',
+        'playerId': playerId,
+        'friendId': friendId,
+      }));
+    } else {
+      completer.complete([]);
+    }
+
+    return completer.future;
+  }
+
+  // Send a direct message to a friend
+  static void sendDirectMessage(String friendId, String message) {
+    final playerId = currentUserProfile?['uid'] ?? '';
+    if (playerId.isNotEmpty && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'action': 'sendDirectMessage',
+        'playerId': playerId,
+        'recipientId': friendId,
+        'message': message,
+      }));
+    }
   }
 }

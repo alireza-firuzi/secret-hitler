@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../logic/online_game_engine.dart';
+import '../logic/firebase_manager.dart';
 import '../widgets/avatar_helper.dart';
+import '../widgets/social_drawer.dart';
 
 class OnlineLobbyScreen extends StatelessWidget {
   final OnlineGameEngine engine;
@@ -46,6 +48,7 @@ class OnlineLobbyScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFF1B1816),
+      endDrawer: const SocialDrawer(),
       appBar: AppBar(
         backgroundColor: const Color(0xFF2C2523),
         title: const Text(
@@ -62,6 +65,17 @@ class OnlineLobbyScreen extends StatelessWidget {
           icon: const Icon(Icons.exit_to_app, color: Colors.white70),
           onPressed: onLeave,
         ),
+        actions: [
+          if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_'))
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.people_outline_rounded, color: Color(0xFFD4AF37)),
+                onPressed: () {
+                  Scaffold.of(context).openEndDrawer();
+                },
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Padding(

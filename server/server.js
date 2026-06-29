@@ -303,6 +303,8 @@ let db = null;
 let gamesCollection = null;
 let privateRolesCollection = null;
 let usersCollection = null;
+let friendshipsCollection = null;
+let messagesCollection = null;
 
 const games = {}; // lobbyCode -> public game state
 const privateRoles = {}; // lobbyCode -> { playerId -> roleData }
@@ -320,6 +322,8 @@ async function connectDB() {
     gamesCollection = db.collection('games');
     privateRolesCollection = db.collection('privateRoles');
     usersCollection = db.collection('users');
+    friendshipsCollection = db.collection('friendships');
+    messagesCollection = db.collection('messages');
     console.log('Connected successfully to MongoDB');
 
     // Load active games on startup
@@ -874,10 +878,14 @@ wss.on('connection', (ws) => {
             };
             await usersCollection.insertOne(user);
           }
+          clientPlayerIds.set(ws, uid);
+          console.log(`Mapped player ID ${uid} on loginUser`);
           ws.send(JSON.stringify({
             type: 'userProfile',
             data: user
           }));
+          await broadcastFriendsList(uid);
+          await notifyFriendsOnlineStatus(uid, true);
           break;
         }
 
@@ -996,6 +1004,156 @@ wss.on('connection', (ws) => {
           }));
           break;
         }
+
+        case 'connectUser': {
+          clientPlayerIds.set(ws, playerId);
+          console.log(`User connected to social services: Player ${playerId}`);
+          await broadcastFriendsList(playerId);
+          await notifyFriendsOnlineStatus(playerId, true);
+          break;
+        }
+
+        case 'getFriends': {
+          await broadcastFriendsList(playerId);
+          break;
+        }
+
+        case 'sendFriendRequest': {
+          const { targetUsername } = payload;
+          if (!db || !friendshipsCollection || !usersCollection) {
+            ws.send(JSON.stringify({ type: 'error', message: 'دیتابیس در دسترس نیست.' }));
+            break;
+          }
+
+          const targetUser = await usersCollection.findOne({
+            username: { $regex: new RegExp(`^${targetUsername.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') }
+          });
+
+          if (!targetUser) {
+            ws.send(JSON.stringify({ type: 'error', message: 'کاربری با این نام کاربری یافت نشد.' }));
+            break;
+          }
+
+          const targetId = targetUser.uid;
+          if (targetId === playerId) {
+            ws.send(JSON.stringify({ type: 'error', message: 'شما نمی‌توانید به خودتان درخواست دوستی بدهید.' }));
+            break;
+          }
+
+          const existingFriendship = await friendshipsCollection.findOne({
+            $or: [
+              { requesterId: playerId, recipientId: targetId },
+              { requesterId: targetId, recipientId: playerId }
+            ]
+          });
+
+          if (existingFriendship) {
+            if (existingFriendship.status === 'accepted') {
+              ws.send(JSON.stringify({ type: 'error', message: 'شما قبلاً با این کاربر دوست شده‌اید.' }));
+            } else {
+              ws.send(JSON.stringify({ type: 'error', message: 'یک درخواست دوستی در انتظار تایید وجود دارد.' }));
+            }
+            break;
+          }
+
+          await friendshipsCollection.insertOne({
+            requesterId: playerId,
+            recipientId: targetId,
+            status: 'pending',
+            createdAt: Date.now()
+          });
+
+          await broadcastFriendsList(playerId);
+          if (isPlayerOnline(targetId)) {
+            await broadcastFriendsList(targetId);
+          }
+          break;
+        }
+
+        case 'respondFriendRequest': {
+          const { requesterId, accept } = payload;
+          if (!db || !friendshipsCollection) {
+            ws.send(JSON.stringify({ type: 'error', message: 'دیتابیس در دسترس نیست.' }));
+            break;
+          }
+
+          if (accept) {
+            await friendshipsCollection.updateOne(
+              { requesterId, recipientId: playerId, status: 'pending' },
+              { $set: { status: 'accepted' } }
+            );
+            await broadcastFriendsList(playerId);
+            await broadcastFriendsList(requesterId);
+            await notifyFriendsOnlineStatus(playerId, true);
+            await notifyFriendsOnlineStatus(requesterId, true);
+          } else {
+            await friendshipsCollection.deleteOne({
+              requesterId,
+              recipientId: playerId,
+              status: 'pending'
+            });
+            await broadcastFriendsList(playerId);
+            if (isPlayerOnline(requesterId)) {
+              await broadcastFriendsList(requesterId);
+            }
+          }
+          break;
+        }
+
+        case 'sendDirectMessage': {
+          const { recipientId, message } = payload;
+          if (!db || !messagesCollection) {
+            ws.send(JSON.stringify({ type: 'error', message: 'دیتابیس در دسترس نیست.' }));
+            break;
+          }
+
+          const msgDoc = {
+            senderId: playerId,
+            receiverId: recipientId,
+            message,
+            timestamp: Date.now()
+          };
+
+          await messagesCollection.insertOne(msgDoc);
+
+          const receiverWs = getWsByPlayerId(recipientId);
+          if (receiverWs && receiverWs.readyState === 1) {
+            receiverWs.send(JSON.stringify({
+              type: 'directMessage',
+              data: msgDoc
+            }));
+          }
+
+          ws.send(JSON.stringify({
+            type: 'directMessage',
+            data: msgDoc
+          }));
+          break;
+        }
+
+        case 'getDirectMessages': {
+          const { friendId } = payload;
+          if (!db || !messagesCollection) {
+            ws.send(JSON.stringify({ type: 'error', message: 'دیتابیس در دسترس نیست.' }));
+            break;
+          }
+
+          const chatHistory = await messagesCollection.find({
+            $or: [
+              { senderId: playerId, receiverId: friendId },
+              { senderId: friendId, receiverId: playerId }
+            ]
+          })
+          .sort({ timestamp: 1 })
+          .toArray();
+
+          ws.send(JSON.stringify({
+            type: 'directMessageHistory',
+            friendId,
+            data: chatHistory
+          }));
+          break;
+        }
       }
     } catch (err) {
       console.error('Error handling message:', err);
@@ -1011,6 +1169,10 @@ wss.on('connection', (ws) => {
 
     clientLobbies.delete(ws);
     clientPlayerIds.delete(ws);
+
+    if (playerId && !isPlayerOnline(playerId)) {
+      notifyFriendsOnlineStatus(playerId, false);
+    }
 
     if (lobbyCode && playerId) {
       const game = games[lobbyCode];
@@ -1078,6 +1240,82 @@ wss.on('connection', (ws) => {
   });
 });
 
+function isPlayerOnline(playerId) {
+  for (const pId of clientPlayerIds.values()) {
+    if (pId === playerId) return true;
+  }
+  return false;
+}
+
+function getWsByPlayerId(playerId) {
+  for (const [ws, pId] of clientPlayerIds.entries()) {
+    if (pId === playerId) return ws;
+  }
+  return null;
+}
+
+async function broadcastFriendsList(playerId) {
+  if (!db || !friendshipsCollection || !usersCollection) return;
+  try {
+    const friendships = await friendshipsCollection.find({
+      $or: [
+        { requesterId: playerId },
+        { recipientId: playerId }
+      ]
+    }).toArray();
+
+    const friendsData = [];
+    for (const f of friendships) {
+      const friendId = f.requesterId === playerId ? f.recipientId : f.requesterId;
+      const friendProfile = await usersCollection.findOne({ uid: friendId });
+      if (!friendProfile) continue;
+
+      friendsData.push({
+        uid: friendId,
+        displayName: friendProfile.displayName,
+        username: friendProfile.username || '',
+        photoUrl: friendProfile.photoUrl || 'avatar_1',
+        status: f.status, // 'pending' | 'accepted'
+        isRequester: f.requesterId === playerId,
+        isOnline: isPlayerOnline(friendId)
+      });
+    }
+
+    const ws = getWsByPlayerId(playerId);
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({
+        type: 'friendsList',
+        data: friendsData
+      }));
+    }
+  } catch (err) {
+    console.error('Error broadcasting friends list:', err);
+  }
+}
+
+async function notifyFriendsOnlineStatus(playerId, isOnline) {
+  if (!db || !friendshipsCollection) return;
+  try {
+    const friendships = await friendshipsCollection.find({
+      status: 'accepted',
+      $or: [
+        { requesterId: playerId },
+        { recipientId: playerId }
+      ]
+    }).toArray();
+
+    for (const f of friendships) {
+      const friendId = f.requesterId === playerId ? f.recipientId : f.requesterId;
+      if (isPlayerOnline(friendId)) {
+        await broadcastFriendsList(friendId);
+      }
+    }
+  } catch (err) {
+    console.error('Error notifying friends online status:', err);
+  }
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is listening on port ${PORT}`);
 });
+

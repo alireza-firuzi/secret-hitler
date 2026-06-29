@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../logic/firebase_manager.dart';
 import '../widgets/avatar_helper.dart';
+import '../widgets/social_drawer.dart';
 import 'tutorial_screen.dart';
 import 'profile_screen.dart';
 import 'leaderboard_screen.dart';
@@ -337,6 +338,7 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFF151211),
+        endDrawer: const SocialDrawer(),
         body: Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
@@ -355,6 +357,42 @@ class _MultiplayerSetupScreenState extends State<MultiplayerSetupScreen> {
                 left: 20,
                 child: Row(
                   children: [
+                    // Friends/Social button (only for registered users, guests do not have friends)
+                    if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
+                      Builder(
+                        builder: (context) => InkWell(
+                          onTap: () {
+                            Scaffold.of(context).openEndDrawer();
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xE6251E1C),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.5), width: 1.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.people_outline_rounded, color: Color(0xFFD4AF37), size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'دوستان',
+                                  style: TextStyle(
+                                    color: Color(0xFFE6DFD3),
+                                    fontFamily: 'serif',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     // Profile button (only for registered users, guests do not have a profile)
                     if (!(FirebaseManager.currentUserProfile?['uid'] ?? '').startsWith('guest_')) ...[
                       InkWell(
